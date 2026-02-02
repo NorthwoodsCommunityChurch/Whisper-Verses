@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whisper Verses - Final Icon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: #0a0a0a;
+            color: #e5e5e5;
+            min-height: 100vh;
+            padding: 60px 40px;
+        }
+        
+        h1 {
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        h2 {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 60px;
+            font-size: 14px;
+        }
+        
+        .main-display {
+            display: flex;
+            gap: 80px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+        
+        .icon-showcase {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .icon-large {
+            width: 256px;
+            height: 256px;
+            border-radius: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(145deg, #1a1a2e 0%, #0f0f1a 100%);
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        
+        .icon-large svg {
+            width: 150px;
+            height: 150px;
+        }
+        
+        .icon-label {
+            margin-top: 20px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .size-previews {
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+        
+        .preview-row {
+            display: flex;
+            gap: 20px;
+            align-items: flex-end;
+        }
+        
+        .preview-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .preview-item span {
+            font-size: 10px;
+            color: #444;
+        }
+        
+        .preview-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(145deg, #1a1a2e 0%, #0f0f1a 100%);
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+        }
+        
+        .s128 { width: 128px; height: 128px; border-radius: 28px; }
+        .s64 { width: 64px; height: 64px; border-radius: 14px; }
+        .s48 { width: 48px; height: 48px; border-radius: 11px; }
+        .s32 { width: 32px; height: 32px; border-radius: 7px; }
+        .s16 { width: 16px; height: 16px; border-radius: 4px; }
+        
+        .preview-icon svg {
+            width: 58%;
+            height: 58%;
+        }
+        
+        .section-divider {
+            width: 100%;
+            height: 1px;
+            background: #222;
+            margin: 60px 0;
+        }
+        
+        .export-section {
+            margin-top: 40px;
+        }
+        
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #555;
+            margin-bottom: 24px;
+        }
+        
+        .svg-export {
+            background: #141414;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 600px;
+        }
+        
+        .svg-export pre {
+            font-size: 11px;
+            color: #888;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>App Icon</h1>
+    <h2>Whisper Verses</h2>
+    <p class="subtitle">Waveform + Scripture — Final</p>
+    
+    <div class="main-display">
+        <div class="icon-showcase">
+            <div class="icon-large">
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Waveform bars forming book shape - no center spine or base curve -->
+                    <g opacity="0.95">
+                        <!-- Left page waveform -->
+                        <rect x="12" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/>
+                        <rect x="20" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/>
+                        <rect x="28" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/>
+                        <rect x="36" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/>
+                        <rect x="44" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/>
+                        
+                        <!-- Right page waveform -->
+                        <rect x="51" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/>
+                        <rect x="59" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/>
+                        <rect x="67" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/>
+                        <rect x="75" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/>
+                        <rect x="83" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/>
+                    </g>
+                </svg>
+            </div>
+            <div class="icon-label">1024px Master</div>
+        </div>
+        
+        <div class="size-previews">
+            <div class="preview-row">
+                <div class="preview-item">
+                    <div class="preview-icon s128">
+                        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <g opacity="0.95">
+                                <rect x="12" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/>
+                                <rect x="20" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/>
+                                <rect x="28" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/>
+                                <rect x="36" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/>
+                                <rect x="44" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/>
+                                <rect x="51" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/>
+                                <rect x="59" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/>
+                                <rect x="67" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/>
+                                <rect x="75" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/>
+                                <rect x="83" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <span>128px</span>
+                </div>
+                
+                <div class="preview-item">
+                    <div class="preview-icon s64">
+                        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <g opacity="0.95">
+                                <rect x="12" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/>
+                                <rect x="20" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/>
+                                <rect x="28" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/>
+                                <rect x="36" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/>
+                                <rect x="44" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/>
+                                <rect x="51" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/>
+                                <rect x="59" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/>
+                                <rect x="67" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/>
+                                <rect x="75" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/>
+                                <rect x="83" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <span>64px</span>
+                </div>
+                
+                <div class="preview-item">
+                    <div class="preview-icon s48">
+                        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <g opacity="0.95">
+                                <rect x="12" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/>
+                                <rect x="20" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/>
+                                <rect x="28" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/>
+                                <rect x="36" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/>
+                                <rect x="44" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/>
+                                <rect x="51" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/>
+                                <rect x="59" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/>
+                                <rect x="67" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/>
+                                <rect x="75" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/>
+                                <rect x="83" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <span>48px</span>
+                </div>
+                
+                <div class="preview-item">
+                    <div class="preview-icon s32">
+                        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <g opacity="0.95">
+                                <rect x="12" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/>
+                                <rect x="20" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/>
+                                <rect x="28" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/>
+                                <rect x="36" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/>
+                                <rect x="44" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/>
+                                <rect x="51" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/>
+                                <rect x="59" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/>
+                                <rect x="67" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/>
+                                <rect x="75" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/>
+                                <rect x="83" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <span>32px</span>
+                </div>
+                
+                <div class="preview-item">
+                    <div class="preview-icon s16">
+                        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <g opacity="0.95">
+                                <rect x="12" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/>
+                                <rect x="20" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/>
+                                <rect x="28" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/>
+                                <rect x="36" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/>
+                                <rect x="44" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/>
+                                <rect x="51" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/>
+                                <rect x="59" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/>
+                                <rect x="67" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/>
+                                <rect x="75" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/>
+                                <rect x="83" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <span>16px</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section-divider"></div>
+    
+    <div class="export-section">
+        <div class="section-title">SVG Export (Icon Only)</div>
+        <div class="svg-export">
+            <pre>&lt;svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"&gt;
+  &lt;g opacity="0.95"&gt;
+    &lt;rect x="12" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/&gt;
+    &lt;rect x="20" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/&gt;
+    &lt;rect x="28" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/&gt;
+    &lt;rect x="36" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/&gt;
+    &lt;rect x="44" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/&gt;
+    &lt;rect x="51" y="50" width="5" height="27" rx="2.5" fill="#6366f1"/&gt;
+    &lt;rect x="59" y="38" width="5" height="39" rx="2.5" fill="#818cf8"/&gt;
+    &lt;rect x="67" y="30" width="5" height="47" rx="2.5" fill="#a5b4fc"/&gt;
+    &lt;rect x="75" y="42" width="5" height="35" rx="2.5" fill="#818cf8"/&gt;
+    &lt;rect x="83" y="55" width="5" height="22" rx="2.5" fill="#6366f1"/&gt;
+  &lt;/g&gt;
+&lt;/svg&gt;</pre>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,50 @@
+name: WhisperVerses
+options:
+  bundleIdPrefix: com.northwoods
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  minimumXcodeGenVersion: "2.38.0"
+
+packages:
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit.git
+    from: "0.9.0"
+
+targets:
+  WhisperVerses:
+    type: application
+    platform: macOS
+    sources:
+      - WhisperVerses
+    resources:
+      - WhisperVerses/Resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.northwoods.WhisperVerses
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: 1
+        INFOPLIST_FILE: WhisperVerses/Info.plist
+        CODE_SIGN_ENTITLEMENTS: WhisperVerses/WhisperVerses.entitlements
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_APP_SANDBOX: NO
+        SWIFT_VERSION: "5.9"
+    dependencies:
+      - package: WhisperKit
+    entitlements:
+      path: WhisperVerses/WhisperVerses.entitlements
+
+  WhisperVersesTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - WhisperVersesTests
+    resources:
+      - path: WhisperVerses/Resources/BibleBooks.json
+    dependencies:
+      - target: WhisperVerses
+    settings:
+      base:
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: YES

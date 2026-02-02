@@ -1,0 +1,44 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserdata
+*.xcworkspace
+!*.xcworkspace/contents.xcworkspacedata
+xcuserdata/
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# SPM
+.build/
+.swiftpm/
+Package.resolved
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Profiling / coverage
+*.profraw
+*.profdata
+*.gcda
+*.gcno
+
+# Xcode build products
+*.app
+*.o
+*.d
+
+# WhisperKit models (large, downloaded at runtime)
+Models/
+
+# IDE
+.vscode/
+.idea/
