@@ -26,6 +26,21 @@ final class NumberWordConverterTests: XCTestCase {
         XCTAssertEqual(NumberWordConverter.convert("first"), "1")
         XCTAssertEqual(NumberWordConverter.convert("second"), "2")
         XCTAssertEqual(NumberWordConverter.convert("third"), "3")
+        XCTAssertEqual(NumberWordConverter.convert("fourth"), "4")
+        XCTAssertEqual(NumberWordConverter.convert("fifth"), "5")
+        XCTAssertEqual(NumberWordConverter.convert("ninth"), "9")
+        XCTAssertEqual(NumberWordConverter.convert("tenth"), "10")
+        XCTAssertEqual(NumberWordConverter.convert("sixteenth"), "16")
+        XCTAssertEqual(NumberWordConverter.convert("nineteenth"), "19")
+        XCTAssertEqual(NumberWordConverter.convert("twentieth"), "20")
+        XCTAssertEqual(NumberWordConverter.convert("ninetieth"), "90")
+    }
+
+    func testCompoundOrdinals() {
+        XCTAssertEqual(NumberWordConverter.convert("twenty-first"), "21")
+        XCTAssertEqual(NumberWordConverter.convert("twenty first"), "21")
+        XCTAssertEqual(NumberWordConverter.convert("thirty-second"), "32")
+        XCTAssertEqual(NumberWordConverter.convert("ninety-ninth"), "99")
     }
 
     // MARK: - Multi-Word Numbers
@@ -46,6 +61,15 @@ final class NumberWordConverterTests: XCTestCase {
         XCTAssertEqual(NumberWordConverter.convert("one hundred and forty three"), "143")
         XCTAssertEqual(NumberWordConverter.convert("two hundred"), "200")
         XCTAssertEqual(NumberWordConverter.convert("one hundred and three"), "103")
+        XCTAssertEqual(NumberWordConverter.convert("a hundred"), "100")
+        XCTAssertEqual(NumberWordConverter.convert("a hundred and three"), "103")
+        XCTAssertEqual(NumberWordConverter.convert("a hundred and twenty one"), "121")
+    }
+
+    func testHundredsWithOrdinals() {
+        XCTAssertEqual(NumberWordConverter.convert("one hundred and third"), "103")
+        XCTAssertEqual(NumberWordConverter.convert("one hundred and twenty-first"), "121")
+        XCTAssertEqual(NumberWordConverter.convert("a hundred and fifth"), "105")
     }
 
     // MARK: - Passthrough & Invalid

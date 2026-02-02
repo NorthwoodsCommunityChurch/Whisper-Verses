@@ -130,6 +130,17 @@ struct BookNameMatcher {
     private func isWordBoundary(after index: String.Index, in text: String) -> Bool {
         if index == text.endIndex { return true }
         let next = text[index]
+        // Apostrophe followed by 's' is a possessive — treat as word boundary
+        // so "John's gospel" correctly matches "John"
+        if next == "'" || next == "\u{2019}" {  // straight or curly apostrophe
+            let afterApostrophe = text.index(after: index)
+            if afterApostrophe < text.endIndex && text[afterApostrophe].lowercased() == "s" {
+                let afterS = text.index(after: afterApostrophe)
+                if afterS == text.endIndex || (!text[afterS].isLetter && !text[afterS].isNumber) {
+                    return true
+                }
+            }
+        }
         return !next.isLetter && !next.isNumber
     }
 

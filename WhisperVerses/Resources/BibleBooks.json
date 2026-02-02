@@ -14,7 +14,7 @@
   {
     "code": "LEV",
     "name": "Leviticus",
-    "aliases": ["leviticus", "lev", "le", "lv"],
+    "aliases": ["leviticus", "lev", "le", "lv", "levitikus"],
     "chapters": [17, 16, 17, 35, 19, 30, 38, 36, 24, 20, 47, 8, 59, 57, 33, 34, 16, 30, 37, 27, 24, 33, 44, 23, 55, 46, 34]
   },
   {
@@ -26,7 +26,7 @@
   {
     "code": "DEU",
     "name": "Deuteronomy",
-    "aliases": ["deuteronomy", "deut", "deu", "de", "dt"],
+    "aliases": ["deuteronomy", "deut", "deu", "de", "dt", "duteronomy", "deuteronamy", "deuteronomie"],
     "chapters": [46, 37, 29, 49, 33, 25, 26, 20, 29, 22, 32, 32, 18, 29, 23, 22, 20, 22, 21, 20, 23, 30, 25, 22, 19, 19, 26, 68, 29, 20, 30, 52, 29, 12]
   },
   {
@@ -92,7 +92,7 @@
   {
     "code": "NEH",
     "name": "Nehemiah",
-    "aliases": ["nehemiah", "neh", "ne"],
+    "aliases": ["nehemiah", "neh", "ne", "nehemaiah", "nehimiah"],
     "chapters": [11, 20, 32, 23, 19, 19, 73, 18, 38, 39, 36, 47, 31]
   },
   {
@@ -122,7 +122,7 @@
   {
     "code": "ECC",
     "name": "Ecclesiastes",
-    "aliases": ["ecclesiastes", "eccles", "eccl", "ecc", "ec", "qoh"],
+    "aliases": ["ecclesiastes", "eccles", "eccl", "ecc", "ec", "qoh", "eclesiastes", "ecclesiasties"],
     "chapters": [18, 26, 22, 16, 20, 12, 29, 17, 18, 20, 10, 14]
   },
   {
@@ -182,7 +182,7 @@
   {
     "code": "OBA",
     "name": "Obadiah",
-    "aliases": ["obadiah", "obad", "oba", "ob"],
+    "aliases": ["obadiah", "obad", "oba", "ob", "obediah"],
     "chapters": [21]
   },
   {
@@ -206,13 +206,13 @@
   {
     "code": "HAB",
     "name": "Habakkuk",
-    "aliases": ["habakkuk", "hab", "hb"],
+    "aliases": ["habakkuk", "hab", "hb", "habakuk", "habakook"],
     "chapters": [17, 20, 19]
   },
   {
     "code": "ZEP",
     "name": "Zephaniah",
-    "aliases": ["zephaniah", "zeph", "zep", "zp"],
+    "aliases": ["zephaniah", "zeph", "zep", "zp", "zefaniah"],
     "chapters": [18, 15, 20]
   },
   {
@@ -224,7 +224,7 @@
   {
     "code": "ZEC",
     "name": "Zechariah",
-    "aliases": ["zechariah", "zech", "zec", "zc"],
+    "aliases": ["zechariah", "zech", "zec", "zc", "zachariah", "zachariah", "zecharaia"],
     "chapters": [21, 13, 10, 14, 11, 15, 14, 23, 17, 12, 17, 14, 9, 21]
   },
   {
@@ -236,7 +236,7 @@
   {
     "code": "MAT",
     "name": "Matthew",
-    "aliases": ["matthew", "matt", "mat", "mt"],
+    "aliases": ["matthew", "matt", "mat", "mt", "mathew"],
     "chapters": [25, 23, 17, 25, 48, 34, 29, 34, 38, 42, 30, 50, 58, 36, 39, 28, 27, 35, 30, 34, 46, 46, 39, 51, 46, 75, 66, 20]
   },
   {
@@ -272,49 +272,49 @@
   {
     "code": "1CO",
     "name": "1 Corinthians",
-    "aliases": ["1 corinthians", "first corinthians", "i corinthians", "1corinthians", "1cor", "1co", "1 cor", "1 co", "i cor", "i co"],
+    "aliases": ["1 corinthians", "first corinthians", "i corinthians", "1corinthians", "1cor", "1co", "1 cor", "1 co", "i cor", "i co", "1 corintheans", "first corintheans"],
     "chapters": [31, 16, 23, 21, 13, 20, 40, 13, 27, 33, 34, 31, 13, 40, 58, 24]
   },
   {
     "code": "2CO",
     "name": "2 Corinthians",
-    "aliases": ["2 corinthians", "second corinthians", "ii corinthians", "2corinthians", "2cor", "2co", "2 cor", "2 co", "ii cor", "ii co"],
+    "aliases": ["2 corinthians", "second corinthians", "ii corinthians", "2corinthians", "2cor", "2co", "2 cor", "2 co", "ii cor", "ii co", "2 corintheans", "second corintheans"],
     "chapters": [24, 17, 18, 18, 21, 18, 16, 24, 15, 18, 33, 21, 14]
   },
   {
     "code": "GAL",
     "name": "Galatians",
-    "aliases": ["galatians", "gal", "ga"],
+    "aliases": ["galatians", "gal", "ga", "galations", "galatians"],
     "chapters": [24, 21, 29, 31, 26, 18]
   },
   {
     "code": "EPH",
     "name": "Ephesians",
-    "aliases": ["ephesians", "eph", "ep"],
+    "aliases": ["ephesians", "eph", "ep", "ephesions"],
     "chapters": [23, 22, 21, 32, 33, 24]
   },
   {
     "code": "PHP",
     "name": "Philippians",
-    "aliases": ["philippians", "phil", "php", "pp"],
+    "aliases": ["philippians", "phil", "php", "pp", "phillipians", "philippions", "phillippians"],
     "chapters": [30, 30, 21, 23]
   },
   {
     "code": "COL",
     "name": "Colossians",
-    "aliases": ["colossians", "col", "co"],
+    "aliases": ["colossians", "col", "co", "collossians", "colosians"],
     "chapters": [29, 23, 25, 18]
   },
   {
     "code": "1TH",
     "name": "1 Thessalonians",
-    "aliases": ["1 thessalonians", "first thessalonians", "i thessalonians", "1thessalonians", "1thess", "1th", "1 thess", "1 th", "i thess", "i th"],
+    "aliases": ["1 thessalonians", "first thessalonians", "i thessalonians", "1thessalonians", "1thess", "1th", "1 thess", "1 th", "i thess", "i th", "1 thessolonians", "first thessolonians"],
     "chapters": [10, 20, 13, 18, 28]
   },
   {
     "code": "2TH",
     "name": "2 Thessalonians",
-    "aliases": ["2 thessalonians", "second thessalonians", "ii thessalonians", "2thessalonians", "2thess", "2th", "2 thess", "2 th", "ii thess", "ii th"],
+    "aliases": ["2 thessalonians", "second thessalonians", "ii thessalonians", "2thessalonians", "2thess", "2th", "2 thess", "2 th", "ii thess", "ii th", "2 thessolonians", "second thessolonians"],
     "chapters": [12, 17, 18]
   },
   {

@@ -81,6 +81,38 @@ final class BookNameMatcherTests: XCTestCase {
         XCTAssertNil(matcher.match(""))
     }
 
+    // MARK: - Mistranscription Aliases
+
+    func testMistranscriptionGalations() {
+        let book = matcher.match("Galations")
+        XCTAssertNotNil(book)
+        XCTAssertEqual(book?.code, "GAL")
+    }
+
+    func testMistranscriptionPhillipians() {
+        let book = matcher.match("Phillipians")
+        XCTAssertNotNil(book)
+        XCTAssertEqual(book?.code, "PHP")
+    }
+
+    func testMistranscriptionMathew() {
+        let book = matcher.match("Mathew")
+        XCTAssertNotNil(book)
+        XCTAssertEqual(book?.code, "MAT")
+    }
+
+    // MARK: - Possessive Word Boundaries
+
+    func testPossessiveDoesNotBreakMatch() {
+        let occurrences = matcher.findAllOccurrences(in: "John's letter today")
+        XCTAssertTrue(occurrences.contains(where: { $0.book.code == "JHN" }))
+    }
+
+    func testPossessiveCurlyApostrophe() {
+        let occurrences = matcher.findAllOccurrences(in: "John\u{2019}s letter today")
+        XCTAssertTrue(occurrences.contains(where: { $0.book.code == "JHN" }))
+    }
+
     // MARK: - findAllOccurrences
 
     func testFindSingleOccurrence() {

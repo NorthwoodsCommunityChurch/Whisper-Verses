@@ -17,7 +17,19 @@ struct NumberWordConverter {
     ]
 
     private static let ordinals: [String: Int] = [
-        "first": 1, "second": 2, "third": 3
+        "first": 1, "second": 2, "third": 3, "fourth": 4,
+        "fifth": 5, "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9,
+        "tenth": 10, "eleventh": 11, "twelfth": 12, "thirteenth": 13,
+        "fourteenth": 14, "fifteenth": 15, "sixteenth": 16, "seventeenth": 17,
+        "eighteenth": 18, "nineteenth": 19,
+        "twentieth": 20, "thirtieth": 30, "fortieth": 40, "fiftieth": 50,
+        "sixtieth": 60, "seventieth": 70, "eightieth": 80, "ninetieth": 90
+    ]
+
+    /// Ordinal ones used as the second part of compound ordinals: "twenty-first" → 1
+    private static let ordinalOnes: [String: Int] = [
+        "first": 1, "second": 2, "third": 3, "fourth": 4,
+        "fifth": 5, "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9
     ]
 
     /// Convert a number word or phrase to a string digit. Returns nil if not a number word.
@@ -36,25 +48,33 @@ struct NumberWordConverter {
         if let value = tens[trimmed] { return String(value) }
         if let value = ordinals[trimmed] { return String(value) }
 
-        // Hyphenated: "twenty-eight"
+        // Hyphenated: "twenty-eight" or "twenty-first"
         let hyphenParts = trimmed.split(separator: "-").map(String.init)
-        if hyphenParts.count == 2, let t = tens[hyphenParts[0]], let o = ones[hyphenParts[1]] {
-            return String(t + o)
+        if hyphenParts.count == 2, let t = tens[hyphenParts[0]] {
+            if let o = ones[hyphenParts[1]] { return String(t + o) }
+            if let o = ordinalOnes[hyphenParts[1]] { return String(t + o) }
         }
 
         // Multi-word
         let words = trimmed.split(separator: " ").map(String.init)
 
-        // Two words: "twenty eight"
-        if words.count == 2, let t = tens[words[0]], let o = ones[words[1]] {
-            return String(t + o)
+        // Two words: "twenty eight" or "twenty first"
+        if words.count == 2, let t = tens[words[0]] {
+            if let o = ones[words[1]] { return String(t + o) }
+            if let o = ordinalOnes[words[1]] { return String(t + o) }
         }
 
         // "hundred" patterns — all words must be consumed
+        // Supports both "one hundred" and "a hundred"
         if let hundredIdx = words.firstIndex(of: "hundred"), hundredIdx > 0 {
-            // Only support "X hundred ..." where X is the word at index 0
             guard hundredIdx == 1 else { return nil }
-            guard let h = ones[words[0]] else { return nil }
+            let multiplier: Int?
+            if words[0] == "a" {
+                multiplier = 1
+            } else {
+                multiplier = ones[words[0]]
+            }
+            guard let h = multiplier else { return nil }
             var value = h * 100
 
             let remaining = Array(words.dropFirst(hundredIdx + 1).filter { $0 != "and" })
@@ -63,11 +83,23 @@ struct NumberWordConverter {
             } else if remaining.count == 1 {
                 if let t = tens[remaining[0]] { value += t }
                 else if let o = ones[remaining[0]] { value += o }
-                else { return nil }
+                else if let o = ordinals[remaining[0]] { value += o }
+                else {
+                    // Hyphenated compound in remainder: "twenty-first"
+                    let parts = remaining[0].split(separator: "-").map(String.init)
+                    if parts.count == 2, let t = tens[parts[0]] {
+                        if let o = ones[parts[1]] { value += t + o }
+                        else if let o = ordinalOnes[parts[1]] { value += t + o }
+                        else { return nil }
+                    } else { return nil }
+                }
                 return String(value)
             } else if remaining.count == 2 {
-                guard let t = tens[remaining[0]], let o = ones[remaining[1]] else { return nil }
-                value += t + o
+                if let t = tens[remaining[0]] {
+                    if let o = ones[remaining[1]] { value += t + o }
+                    else if let o = ordinalOnes[remaining[1]] { value += t + o }
+                    else { return nil }
+                } else { return nil }
                 return String(value)
             }
             return nil
