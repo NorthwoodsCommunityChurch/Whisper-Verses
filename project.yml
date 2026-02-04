@@ -8,8 +8,8 @@ options:
 
 packages:
   WhisperKit:
-    url: https://github.com/argmaxinc/WhisperKit.git
-    from: "0.9.0"
+    url: https://github.com/NorthwoodsCommunityChurch/WhisperKit.git
+    branch: main
 
 targets:
   WhisperVerses:
@@ -22,8 +22,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.northwoods.WhisperVerses
-        MARKETING_VERSION: "1.0.0"
-        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "1.0.0-beta"
+        CURRENT_PROJECT_VERSION: 2
         INFOPLIST_FILE: WhisperVerses/Info.plist
         CODE_SIGN_ENTITLEMENTS: WhisperVerses/WhisperVerses.entitlements
         CODE_SIGN_IDENTITY: "-"

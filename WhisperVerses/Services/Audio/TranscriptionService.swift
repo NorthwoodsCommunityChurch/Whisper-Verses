@@ -45,12 +45,15 @@ final class TranscriptionService {
             }
 
             // Initialize with downloaded model (no re-download)
+            // Use ThreadSafeAudioProcessor to prevent data race crash in WhisperKit's
+            // AudioProcessor (audio tap callback writes vs transcription loop reads)
             let config = WhisperKitConfig(
                 modelFolder: modelURL.path,
                 computeOptions: ModelComputeOptions(
                     audioEncoderCompute: .cpuAndNeuralEngine,
                     textDecoderCompute: .cpuAndNeuralEngine
                 ),
+                audioProcessor: ThreadSafeAudioProcessor(),
                 verbose: false,
                 load: true,
                 download: false

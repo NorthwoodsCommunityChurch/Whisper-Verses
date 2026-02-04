@@ -168,6 +168,9 @@ struct OptionsPanelView: View {
                     .foregroundStyle(.red)
             }
 
+            // Update banner
+            UpdateBannerView()
+
             // Error banner
             if let error = appState.errorMessage {
                 HStack {

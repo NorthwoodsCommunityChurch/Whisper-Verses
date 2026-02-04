@@ -30,14 +30,8 @@ final class AppState {
     var outputFolderURL: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         .appendingPathComponent("ProPresenter/WhisperVerses", isDirectory: true)
     var capturedImages: [CapturedVerse] = []
+    var capturedVerseKeys: Set<String> = []  // Tracks individual verses already captured (e.g., "John 3:16")
     var nextSequenceNumber: Int = 1
-
-    // MARK: - Live Slide Preview
-    var liveSlideImageData: Data?
-    var liveSlidePresentationName: String = ""
-    var liveSlideVerseLabel: String = ""
-    var liveSlideText: String = ""
-    var liveSlideIndex: Int = 0
 
     // MARK: - Settings
     var confidenceThreshold: Double = 0.7
@@ -53,14 +47,14 @@ final class AppState {
     var verseDetector = VerseDetector()
     var proPresenterAPI = ProPresenterAPI()
     var presentationIndexer: PresentationIndexer?
+    var updateService = UpdateService()
     @ObservationIgnored private var reconnectTask: Task<Void, Never>?
-    @ObservationIgnored private var slidePollingTask: Task<Void, Never>?
-    @ObservationIgnored private var lastSlideFingerprint: String = ""
     @ObservationIgnored private var hypothesisPollTask: Task<Void, Never>?
 
     init() {
         loadSettings()
         ensureOutputFolder()
+        updateService.startPeriodicChecks()
     }
 
     private func ensureOutputFolder() {
@@ -75,6 +69,7 @@ final class AppState {
             }
         }
         capturedImages.removeAll()
+        capturedVerseKeys.removeAll()
         nextSequenceNumber = 1
     }
 
@@ -254,8 +249,6 @@ final class AppState {
         }
         if !connected {
             showError("Could not connect to ProPresenter at \(proPresenterHost):\(proPresenterPort). Check that Pro7 is running and the network API is enabled.")
-        } else {
-            startSlidePolling()
         }
         saveSettings()
         startAutoReconnect()
@@ -268,75 +261,9 @@ final class AppState {
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
                 guard let self, !Task.isCancelled else { return }
                 let connected = await self.proPresenterAPI.checkConnection()
-                let wasConnected = self.isProPresenterConnected
                 await MainActor.run {
                     self.isProPresenterConnected = connected
                 }
-                // Start polling if we just reconnected
-                if connected && !wasConnected {
-                    self.startSlidePolling()
-                }
-            }
-        }
-    }
-
-    // MARK: - Live Slide Polling
-
-    private func startSlidePolling() {
-        slidePollingTask?.cancel()
-        slidePollingTask = Task { [weak self] in
-            while !Task.isCancelled {
-                guard let self, !Task.isCancelled else { return }
-                await self.pollCurrentSlide()
-                try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
-            }
-        }
-    }
-
-    private func pollCurrentSlide() async {
-        // Fetch both endpoints concurrently
-        async let slideResult = proPresenterAPI.getSlideStatus()
-        async let indexResult = proPresenterAPI.getSlideIndex()
-
-        guard let status = await slideResult else { return }
-        let indexStatus = await indexResult
-
-        // Build fingerprint from slide UUID to detect changes
-        let fingerprint = status.currentUUID.isEmpty ? status.currentText : status.currentUUID
-        guard !fingerprint.isEmpty, fingerprint != lastSlideFingerprint else { return }
-        lastSlideFingerprint = fingerprint
-
-        // Update state
-        let presName = indexStatus?.presentationName ?? ""
-        let slideIndex = indexStatus?.slideIndex ?? 0
-        let presUUID = indexStatus?.presentationUUID ?? ""
-
-        // Compute verse label from slide index if we have the index built
-        let verseLabel = presentationIndexer?.map.verseLabel(
-            presentationUUID: presUUID,
-            slideIndex: slideIndex
-        ) ?? presName
-
-        await MainActor.run {
-            self.liveSlidePresentationName = presName
-            self.liveSlideVerseLabel = verseLabel
-            self.liveSlideText = status.currentText
-            self.liveSlideIndex = slideIndex
-        }
-
-        // Fetch thumbnail for the new slide
-        if !presUUID.isEmpty {
-            do {
-                let imageData = try await proPresenterAPI.getSlideImage(
-                    presentationUUID: presUUID,
-                    slideIndex: slideIndex,
-                    quality: 400
-                )
-                await MainActor.run {
-                    self.liveSlideImageData = imageData
-                }
-            } catch {
-                // Thumbnail fetch failed — keep showing previous
             }
         }
     }
@@ -368,7 +295,38 @@ final class AppState {
         guard confidenceValue >= confidenceThreshold else { return }
 
         guard let indexer = presentationIndexer else { return }
-        guard let location = indexer.map.lookup(verse.reference) else {
+
+        // Expand range into individual verse references
+        let verseStart = verse.reference.verseStart
+        let verseEnd = verse.reference.verseEnd ?? verseStart
+        var versesToCapture: [BibleReference] = []
+        for v in verseStart...verseEnd {
+            let singleRef = BibleReference(
+                bookCode: verse.reference.bookCode,
+                bookName: verse.reference.bookName,
+                chapter: verse.reference.chapter,
+                verseStart: v,
+                verseEnd: nil
+            )
+            let key = singleRef.displayString
+            if !capturedVerseKeys.contains(key) {
+                versesToCapture.append(singleRef)
+            }
+        }
+
+        // All verses in this detection already captured → mark as duplicate
+        if versesToCapture.isEmpty {
+            await MainActor.run {
+                if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
+                    self.detectedVerses[idx].status = .duplicate
+                }
+            }
+            return
+        }
+
+        // Verify at least one verse can be found in Pro7
+        let firstLookup = versesToCapture.first.flatMap { indexer.map.lookup($0) }
+        if firstLookup == nil {
             await MainActor.run {
                 if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
                     self.detectedVerses[idx].status = .failed(error: "Verse not found in ProPresenter library")
@@ -383,34 +341,53 @@ final class AppState {
             }
         }
 
-        let seqNum = nextSequenceNumber
-        await MainActor.run { self.nextSequenceNumber += 1 }
+        var lastFilename = ""
+        var capturedCount = 0
 
-        do {
-            let (fileURL, filename) = try await SlideImageCapture.captureAndSave(
-                api: proPresenterAPI,
-                presentationUUID: location.presentationUUID,
-                slideIndex: location.slideIndex,
-                reference: verse.reference,
-                sequenceNumber: seqNum,
-                outputFolder: outputFolderURL
-            )
+        for ref in versesToCapture {
+            guard let location = indexer.map.lookup(ref) else { continue }
 
-            await MainActor.run {
-                if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
-                    self.detectedVerses[idx].status = .saved(filename: filename)
+            let seqNum = nextSequenceNumber
+            await MainActor.run { self.nextSequenceNumber += 1 }
+
+            do {
+                let (fileURL, filename) = try await SlideImageCapture.captureAndSave(
+                    api: proPresenterAPI,
+                    presentationUUID: location.presentationUUID,
+                    slideIndex: location.slideIndex,
+                    reference: ref,
+                    sequenceNumber: seqNum,
+                    outputFolder: outputFolderURL
+                )
+
+                lastFilename = filename
+                capturedCount += 1
+
+                await MainActor.run {
+                    self.capturedVerseKeys.insert(ref.displayString)
+                    self.capturedImages.append(CapturedVerse(
+                        reference: ref.displayString,
+                        filename: filename,
+                        imageURL: fileURL,
+                        timestamp: Date()
+                    ))
                 }
-                self.capturedImages.append(CapturedVerse(
-                    reference: verse.reference.displayString,
-                    filename: filename,
-                    imageURL: fileURL,
-                    timestamp: Date()
-                ))
+            } catch {
+                await MainActor.run {
+                    if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
+                        self.detectedVerses[idx].status = .failed(error: error.localizedDescription)
+                    }
+                }
+                return
             }
-        } catch {
-            await MainActor.run {
-                if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
-                    self.detectedVerses[idx].status = .failed(error: error.localizedDescription)
+        }
+
+        await MainActor.run {
+            if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
+                if capturedCount > 1 {
+                    self.detectedVerses[idx].status = .saved(filename: "\(capturedCount) slides")
+                } else {
+                    self.detectedVerses[idx].status = .saved(filename: lastFilename)
                 }
             }
         }

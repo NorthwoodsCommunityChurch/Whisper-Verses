@@ -8,7 +8,7 @@ struct CapturePreviewPanelView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack {
-                Text("Pro7 Capture Preview")
+                Text("Pro7 Capture")
                     .font(.headline)
                 Spacer()
                 Text("\(appState.capturedImages.count) captured")
@@ -20,60 +20,18 @@ struct CapturePreviewPanelView: View {
 
             Divider()
 
-            // Live slide preview (always shown when connected)
-            if let imageData = appState.liveSlideImageData,
-               let nsImage = NSImage(data: imageData) {
-                VStack(spacing: 4) {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(maxHeight: 120)
-                        .background(CheckerboardView())
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4)
-                                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-                        )
-
-                    if !appState.liveSlideVerseLabel.isEmpty {
-                        Text(appState.liveSlideVerseLabel)
-                            .font(.caption)
-                            .bold()
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                    Text("Live Output — \(appState.liveSlidePresentationName)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                .padding(.horizontal)
-                .padding(.top, 8)
-
-                Divider()
-                    .padding(.top, 8)
-            }
-
             if appState.capturedImages.isEmpty && appState.detectedVerses.isEmpty {
-                if appState.liveSlideImageData == nil {
-                    // Empty state — no live slide and no captures
-                    Spacer()
-                    VStack(spacing: 8) {
-                        Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 36))
-                            .foregroundStyle(.tertiary)
-                        Text(appState.isProPresenterConnected
-                             ? "Waiting for slide data..."
-                             : "Connect to Pro7 to see live slides")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    Spacer()
-                } else {
-                    Spacer()
+                Spacer()
+                VStack(spacing: 8) {
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 36))
+                        .foregroundStyle(.tertiary)
+                    Text("Detected verses will appear here")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity)
+                Spacer()
             } else {
                 VStack(spacing: 0) {
                     // Preview thumbnail of most recent or selected capture
@@ -121,15 +79,20 @@ struct CapturePreviewPanelView: View {
                         ForEach(appState.detectedVerses.filter { !$0.status.isSaved }) { verse in
                             HStack {
                                 Circle()
-                                    .fill(.orange)
+                                    .fill(verse.status.dotColor)
                                     .frame(width: 8, height: 8)
                                 Text(verse.reference.displayString)
                                     .font(.caption)
+                                    .foregroundStyle(verse.status.isDuplicate ? .tertiary : .primary)
                                 Spacer()
                                 switch verse.status {
                                 case .capturing:
                                     ProgressView()
                                         .scaleEffect(0.5)
+                                case .duplicate:
+                                    Text("dup")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
                                 case .failed(let error):
                                     Image(systemName: "xmark.circle.fill")
                                         .foregroundStyle(.red)

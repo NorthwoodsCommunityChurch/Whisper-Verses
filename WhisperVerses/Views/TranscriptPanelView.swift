@@ -29,7 +29,7 @@ struct TranscriptPanelView: View {
             // Transcript content
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 4) {
                         ForEach(appState.confirmedSegments) { segment in
                             TranscriptRow(segment: segment)
                                 .id(segment.id)
@@ -52,18 +52,14 @@ struct TranscriptPanelView: View {
                             .id("hypothesis")
                         }
                     }
-                    .padding(.vertical, 8)
+                    .textSelection(.enabled)
+                    .padding(.top, 8)
+                    .padding(.bottom, 40)
                 }
+                .scrollIndicators(.never)
                 .onChange(of: appState.confirmedSegments.count) {
-                    withAnimation {
-                        if let last = appState.confirmedSegments.last {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
-                    }
-                }
-                .onChange(of: appState.currentHypothesis) {
-                    withAnimation {
-                        proxy.scrollTo("hypothesis", anchor: .bottom)
+                    if let last = appState.confirmedSegments.last {
+                        proxy.scrollTo(last.id, anchor: .bottom)
                     }
                 }
             }
@@ -100,12 +96,10 @@ struct TranscriptRow: View {
             if segment.detectedReferences.isEmpty {
                 Text(segment.text)
                     .font(.body)
-                    .textSelection(.enabled)
             } else {
                 // Highlight text containing verse references
                 Text(segment.text)
                     .font(.body)
-                    .textSelection(.enabled)
                     .padding(2)
                     .background(Color.yellow.opacity(0.2), in: RoundedRectangle(cornerRadius: 3))
             }

@@ -20,7 +20,7 @@ Real-time Bible verse detection and ProPresenter slide capture for live services
 
 - macOS 14.0+ (Sonoma)
 - Apple Silicon Mac (M1 or later)
-- [AudioLoop](https://github.com/Levin-Li/AudioLoop) or similar virtual audio driver
+- [AudioLoop](https://github.com/NorthwoodsCommunityChurch/AudioLoop) or similar virtual audio driver
 - ProPresenter 7 with Network API enabled
 - Bible presentations pre-generated in Pro7 (one per book, transparent background template)
 

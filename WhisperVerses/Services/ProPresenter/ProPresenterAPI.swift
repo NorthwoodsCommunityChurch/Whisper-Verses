@@ -90,66 +90,6 @@ final class ProPresenterAPI {
         return data
     }
 
-    // MARK: - Live Slide Status
-
-    struct SlideStatus {
-        let currentUUID: String
-        let currentText: String
-    }
-
-    struct SlideIndexStatus {
-        let slideIndex: Int
-        let presentationUUID: String
-        let presentationName: String
-    }
-
-    /// Get the current slide status (UUID and text of the live output).
-    func getSlideStatus() async -> SlideStatus? {
-        guard let url = URL(string: "\(baseURL)/v1/status/slide") else { return nil }
-        do {
-            let (data, response) = try await session.data(from: url)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let current = json["current"] as? [String: Any] else { return nil }
-            return SlideStatus(
-                currentUUID: current["uuid"] as? String ?? "",
-                currentText: current["text"] as? String ?? ""
-            )
-        } catch {
-            return nil
-        }
-    }
-
-    /// Get the current slide index and presentation info.
-    func getSlideIndex() async -> SlideIndexStatus? {
-        guard let url = URL(string: "\(baseURL)/v1/presentation/slide_index") else { return nil }
-        do {
-            let (data, response) = try await session.data(from: url)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let presIndex = json["presentation_index"] as? [String: Any] else { return nil }
-            let slideIndex = presIndex["index"] as? Int ?? 0
-            let presId = presIndex["presentation_id"] as? [String: Any]
-            return SlideIndexStatus(
-                slideIndex: slideIndex,
-                presentationUUID: presId?["uuid"] as? String ?? "",
-                presentationName: presId?["name"] as? String ?? ""
-            )
-        } catch {
-            return nil
-        }
-    }
-
-    // MARK: - Trigger (for future use)
-
-    /// Trigger the first cue of a presentation in a library (loads without triggering on output
-    /// if the presentation is configured that way). Currently unused — we only read thumbnails.
-    func triggerPresentation(libraryId: String, presentationId: String) async throws {
-        let libEncoded = libraryId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? libraryId
-        let presEncoded = presentationId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? presentationId
-        _ = try await get("/v1/library/\(libEncoded)/\(presEncoded)/trigger")
-    }
-
     // MARK: - Private
 
     private func get(_ path: String) async throws -> Data {

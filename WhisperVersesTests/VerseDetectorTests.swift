@@ -35,6 +35,44 @@ final class VerseDetectorTests: XCTestCase {
         XCTAssertEqual(verses.first?.reference.verseEnd, 30)
     }
 
+    // MARK: - Comma Format (common transcription artifact)
+
+    func testCommaFormat() {
+        let verses = detector.detect(in: "Matthew 28, 19")
+        XCTAssertEqual(verses.count, 1)
+        XCTAssertEqual(verses.first?.reference.bookCode, "MAT")
+        XCTAssertEqual(verses.first?.reference.chapter, 28)
+        XCTAssertEqual(verses.first?.reference.verseStart, 19)
+    }
+
+    func testCommaFormatNoSpace() {
+        detector.clearHistory()
+        let verses = detector.detect(in: "Matthew 28,19")
+        XCTAssertEqual(verses.count, 1)
+        XCTAssertEqual(verses.first?.reference.bookCode, "MAT")
+        XCTAssertEqual(verses.first?.reference.chapter, 28)
+        XCTAssertEqual(verses.first?.reference.verseStart, 19)
+    }
+
+    func testCommaFormatInSentence() {
+        detector.clearHistory()
+        let verses = detector.detect(in: "he said this in Matthew 28, 19. So he says")
+        XCTAssertEqual(verses.count, 1)
+        XCTAssertEqual(verses.first?.reference.bookCode, "MAT")
+        XCTAssertEqual(verses.first?.reference.chapter, 28)
+        XCTAssertEqual(verses.first?.reference.verseStart, 19)
+    }
+
+    // MARK: - "And" Format (spoken separator)
+
+    func testAndFormat() {
+        let verses = detector.detect(in: "Matthew 28 and 19")
+        XCTAssertEqual(verses.count, 1)
+        XCTAssertEqual(verses.first?.reference.bookCode, "MAT")
+        XCTAssertEqual(verses.first?.reference.chapter, 28)
+        XCTAssertEqual(verses.first?.reference.verseStart, 19)
+    }
+
     // MARK: - Space Format
 
     func testSpaceFormat() {
@@ -89,22 +127,21 @@ final class VerseDetectorTests: XCTestCase {
         XCTAssertEqual(verses.count, 0, "John 3 only has 36 verses")
     }
 
-    // MARK: - Deduplication
+    // MARK: - Repeated Detection (dedup removed — capture layer handles duplicates)
 
-    func testDeduplicationSuppressesRepeat() {
+    func testRepeatedVerseStillDetected() {
         let first = detector.detect(in: "John 3:16")
         XCTAssertEqual(first.count, 1)
 
-        // Same verse again within 30s window should be suppressed
+        // Same verse again should still be detected (capture layer filters duplicates)
         let second = detector.detect(in: "John 3:16")
-        XCTAssertEqual(second.count, 0, "Duplicate within dedup window should be suppressed")
+        XCTAssertEqual(second.count, 1, "Repeated verse should still be detected")
     }
 
-    func testClearHistoryResetsDedupe() {
-        _ = detector.detect(in: "John 3:16")
-        detector.clearHistory()
-        let after = detector.detect(in: "John 3:16")
-        XCTAssertEqual(after.count, 1, "After clearHistory, same verse should detect again")
+    func testPerSegmentDedup() {
+        // Same verse twice in one segment should only detect once
+        let verses = detector.detect(in: "John 3:16 is great, John 3:16 is important")
+        XCTAssertEqual(verses.count, 1, "Same verse within one segment should deduplicate")
     }
 
     // MARK: - No False Positives

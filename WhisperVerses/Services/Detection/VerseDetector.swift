@@ -15,6 +15,8 @@ final class VerseDetector {
 
     // Regex patterns applied to text AFTER a book name position
     private let colonRegex: NSRegularExpression?   // "3:16" or "3:16-18"
+    private let commaRegex: NSRegularExpression?   // "3, 16" or "3,16" (common transcription of spoken refs)
+    private let andRegex: NSRegularExpression?     // "3 and 16" (spoken: "chapter 3 and verse 16")
     private let spaceRegex: NSRegularExpression?   // "3 16" or "3 16-18"
     private let singleRegex: NSRegularExpression?  // "25" (for single-chapter books)
 
@@ -28,6 +30,12 @@ final class VerseDetector {
         // These are anchored to start of string — applied to the substring after a book name
         self.colonRegex = try? NSRegularExpression(
             pattern: #"^\s*(\d{1,3})\s*:\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?"#
+        )
+        self.commaRegex = try? NSRegularExpression(
+            pattern: #"^\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?"#
+        )
+        self.andRegex = try? NSRegularExpression(
+            pattern: #"^\s+(\d{1,3})\s+and\s+(\d{1,3})"#
         )
         self.spaceRegex = try? NSRegularExpression(
             pattern: #"^\s+(\d{1,3})\s+(\d{1,3})(?:\s*-\s*(\d{1,3}))?"#
@@ -69,6 +77,32 @@ final class VerseDetector {
                 continue
             }
 
+            // Try comma pattern: "28, 19" or "28,19" (common transcription artifact)
+            if let verse = matchChapterVerse(
+                commaRegex, in: afterBook, book: occurrence.book,
+                confidence: .medium, sourceText: text
+            ) {
+                let key = verse.reference.displayString
+                if !detectedKeys.contains(key) {
+                    detected.append(verse)
+                    detectedKeys.insert(key)
+                }
+                continue
+            }
+
+            // Try "and" pattern: "28 and 19" (spoken: "chapter 28 and verse 19")
+            if let verse = matchChapterVerse(
+                andRegex, in: afterBook, book: occurrence.book,
+                confidence: .medium, sourceText: text
+            ) {
+                let key = verse.reference.displayString
+                if !detectedKeys.contains(key) {
+                    detected.append(verse)
+                    detectedKeys.insert(key)
+                }
+                continue
+            }
+
             // Try space pattern: "3 16" or "3 16-18" (medium confidence)
             if let verse = matchChapterVerse(
                 spaceRegex, in: afterBook, book: occurrence.book,
@@ -99,17 +133,6 @@ final class VerseDetector {
         // Phase 2: Fuzzy fallback — find "Word Number:Number" patterns not caught above
         detectFuzzyFallback(in: normalized, sourceText: text,
                             detected: &detected, detectedKeys: &detectedKeys)
-
-        // Phase 3: Deduplication across time (same verse within 30s window is suppressed)
-        detected = detected.filter { verse in
-            let key = verse.reference.displayString
-            if let lastSeen = recentDetections[key],
-               Date().timeIntervalSince(lastSeen) < deduplicationWindow {
-                return false
-            }
-            recentDetections[key] = Date()
-            return true
-        }
 
         return detected
     }
