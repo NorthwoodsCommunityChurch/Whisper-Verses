@@ -36,6 +36,33 @@ struct OptionsPanelView: View {
                 }
             }
 
+            // Input Gain
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Input Gain: \(String(format: "%.1fx", appState.inputGain))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if appState.inputGain != 1.0 {
+                        Button("Reset") {
+                            appState.inputGain = 1.0
+                            ThreadSafeAudioProcessor.inputGain = 1.0
+                            appState.saveSettings()
+                        }
+                        .font(.caption2)
+                        .buttonStyle(.borderless)
+                    }
+                }
+                Slider(value: $state.inputGain, in: 0.5...3.0, step: 0.1)
+                    .onChange(of: appState.inputGain) { _, newValue in
+                        ThreadSafeAudioProcessor.inputGain = newValue
+                        appState.saveSettings()
+                    }
+                Text("Boost quiet audio or reduce loud audio before processing")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
             // Pro7 Connection
             VStack(alignment: .leading, spacing: 4) {
                 Text("ProPresenter")

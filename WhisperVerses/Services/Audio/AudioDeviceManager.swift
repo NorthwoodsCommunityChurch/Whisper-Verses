@@ -36,9 +36,11 @@ final class AudioDeviceManager {
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let channelData = buffer.floatChannelData?[0] else { return }
             let frames = Int(buffer.frameLength)
+            let gain = ThreadSafeAudioProcessor.inputGain
             var sum: Float = 0
             for i in 0..<frames {
-                sum += channelData[i] * channelData[i]
+                let sample = channelData[i] * gain
+                sum += sample * sample
             }
             let rms = sqrt(sum / Float(frames))
             DispatchQueue.main.async {

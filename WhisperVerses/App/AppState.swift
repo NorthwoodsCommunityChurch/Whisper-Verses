@@ -36,6 +36,7 @@ final class AppState {
     // MARK: - Settings
     var confidenceThreshold: Double = 0.7
     var hasCompletedOnboarding: Bool = false
+    var inputGain: Float = 1.0  // 0.5 to 3.0, 1.0 is unity gain
 
     // MARK: - Error Display
     var errorMessage: String?
@@ -93,6 +94,10 @@ final class AppState {
         let deviceID = defaults.integer(forKey: "selectedAudioDeviceID")
         if deviceID > 0 { selectedAudioDeviceID = AudioDeviceID(deviceID) }
         hasCompletedOnboarding = defaults.bool(forKey: "hasCompletedOnboarding")
+        let savedGain = defaults.float(forKey: "inputGain")
+        if savedGain > 0 { inputGain = savedGain }
+        // Sync to the static property used by audio processor
+        ThreadSafeAudioProcessor.inputGain = inputGain
     }
 
     func saveSettings() {
@@ -105,6 +110,7 @@ final class AppState {
         if let deviceID = selectedAudioDeviceID {
             defaults.set(Int(deviceID), forKey: "selectedAudioDeviceID")
         }
+        defaults.set(inputGain, forKey: "inputGain")
     }
 
     // MARK: - Error Display

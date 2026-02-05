@@ -16,6 +16,13 @@ import os
 final class ThreadSafeAudioProcessor: AudioProcessor {
     private var _lock = os_unfair_lock()
 
+    /// Input gain multiplier (0.5 to 3.0). Set from AppState.
+    /// Using nonisolated(unsafe) since this is accessed from audio callback thread.
+    nonisolated(unsafe) static var inputGain: Float = 1.0
+
+    /// Tracks how many samples have already had gain applied to avoid re-amplifying.
+    private var _gainAppliedCount: Int = 0
+
     override var audioSamples: ContiguousArray<Float> {
         get {
             os_unfair_lock_lock(&_lock)
@@ -25,7 +32,26 @@ final class ThreadSafeAudioProcessor: AudioProcessor {
         set {
             os_unfair_lock_lock(&_lock)
             defer { os_unfair_lock_unlock(&_lock) }
-            super.audioSamples = newValue
+
+            let gain = Self.inputGain
+
+            // If array was cleared or shrunk, reset our tracking
+            if newValue.count < _gainAppliedCount {
+                _gainAppliedCount = 0
+            }
+
+            // Apply gain only to newly added samples (avoid re-amplifying)
+            if gain != 1.0 && newValue.count > _gainAppliedCount {
+                var modified = newValue
+                for i in _gainAppliedCount..<modified.count {
+                    modified[i] *= gain
+                }
+                _gainAppliedCount = modified.count
+                super.audioSamples = modified
+            } else {
+                _gainAppliedCount = newValue.count
+                super.audioSamples = newValue
+            }
         }
     }
 
