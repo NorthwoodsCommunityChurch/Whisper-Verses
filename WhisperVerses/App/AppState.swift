@@ -244,6 +244,16 @@ final class AppState {
         currentHypothesis = ""
     }
 
+    func resetWhisper() {
+        stopListening()
+        transcriptionService = nil
+        confirmedSegments.removeAll()
+        detectedVerses.removeAll()
+        isModelLoaded = false
+        isModelLoading = false
+        modelDownloadProgress = 0.0
+    }
+
     // MARK: - ProPresenter Connection
 
     func connectToProPresenter() async {

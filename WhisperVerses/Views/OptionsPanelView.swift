@@ -169,6 +169,12 @@ struct OptionsPanelView: View {
                 }
                 .buttonStyle(.bordered)
                 .keyboardShortcut("k", modifiers: [.command, .shift])
+
+                Button("Reset Whisper") {
+                    appState.resetWhisper()
+                }
+                .buttonStyle(.bordered)
+                .keyboardShortcut("r", modifiers: [.command, .shift])
             }
 
             // Model status
