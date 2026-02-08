@@ -335,13 +335,16 @@ final class AppState {
                 verseEnd: nil
             )
             let key = singleRef.displayString
-            if !capturedVerseKeys.contains(key) {
+            let alreadyCaptured = capturedVerseKeys.contains(key)
+            print("captureVerseSlide: Checking '\(key)' - alreadyCaptured: \(alreadyCaptured)")
+            if !alreadyCaptured {
                 versesToCapture.append(singleRef)
             }
         }
 
         // All verses in this detection already captured → mark as duplicate
         if versesToCapture.isEmpty {
+            print("captureVerseSlide: Marking as DUPLICATE - all verses already captured")
             await MainActor.run {
                 if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
                     self.detectedVerses[idx].status = .duplicate
@@ -353,6 +356,11 @@ final class AppState {
         // Verify at least one verse can be found in Pro7
         let firstLookup = versesToCapture.first.flatMap { indexer.map.lookup($0) }
         if firstLookup == nil {
+            if let firstRef = versesToCapture.first {
+                print("captureVerseSlide: LOOKUP FAILED for \(firstRef.displayString)")
+                print("  - map.hasBook('\(firstRef.bookCode)'): \(indexer.map.hasBook(firstRef.bookCode))")
+                print("  - map.count: \(indexer.map.count)")
+            }
             await MainActor.run {
                 if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
                     self.detectedVerses[idx].status = .failed(error: "Verse not found in ProPresenter library")
@@ -390,6 +398,7 @@ final class AppState {
                 capturedCount += 1
 
                 await MainActor.run {
+                    print("captureVerseSlide: CAPTURED '\(ref.displayString)' - adding to capturedVerseKeys")
                     self.capturedVerseKeys.insert(ref.displayString)
                     self.capturedImages.append(CapturedVerse(
                         reference: ref.displayString,

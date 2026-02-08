@@ -19,10 +19,11 @@ final class PresentationIndexer {
         bookIndex.books.filter { !map.hasBook($0.code) }
     }
 
-    /// Regex to parse Pro7 presentation names like "Genesis 1_1-50_26 (KJV)".
+    /// Regex to parse Pro7 presentation names like "Genesis 1_1-50_26 (KJV)" or "Jude 1_1-25 (NIV)".
     /// Captures everything before the verse range pattern as the book name.
+    /// Handles both multi-chapter (1_1-50_26) and single-chapter (1_1-25) formats.
     private let namePattern: NSRegularExpression? = {
-        try? NSRegularExpression(pattern: #"^(.+?)\s+\d+_\d+-\d+_\d+\s*\(.*\)$"#)
+        try? NSRegularExpression(pattern: #"^(.+?)\s+\d+_\d+-\d+(?:_\d+)?\s*\(.*\)$"#)
     }()
 
     init(api: ProPresenterAPI, bookIndex: BibleBookIndex = .load()) {
@@ -59,15 +60,26 @@ final class PresentationIndexer {
             var newMap = ProPresentationMap()
             var count = 0
 
-            for item in items {
-                guard let bookName = parseBookName(from: item.name) else { continue }
+            print("PresentationIndexer: Processing \(items.count) items from library '\(libraryName)'")
 
-                // Look up the book using exact match first, then fuzzy
-                guard let book = matcher.match(bookName) else {
-                    print("PresentationIndexer: Could not match '\(bookName)' from '\(item.name)'")
+            for item in items {
+                guard let bookName = parseBookName(from: item.name) else {
+                    print("PresentationIndexer: SKIPPED '\(item.name)' - could not parse book name")
                     continue
                 }
 
+                // Look up the book using exact match first, then fuzzy
+                guard let book = matcher.match(bookName) else {
+                    print("PresentationIndexer: SKIPPED '\(item.name)' - no match for '\(bookName)'")
+                    continue
+                }
+
+                // Warn if overwriting an existing book (duplicate detection)
+                if newMap.hasBook(book.code) {
+                    print("PresentationIndexer: WARNING - Overwriting '\(book.code)' with '\(item.name)'")
+                }
+
+                print("PresentationIndexer: Indexed \(book.code) (\(book.name)) from '\(item.name)'")
                 newMap.register(
                     bookCode: book.code,
                     presentationUUID: item.uuid,

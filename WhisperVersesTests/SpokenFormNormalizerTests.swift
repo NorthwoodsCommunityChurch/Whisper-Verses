@@ -74,4 +74,17 @@ final class SpokenFormNormalizerTests: XCTestCase {
         let result = normalizer.normalize("and he said to them")
         XCTAssertEqual(result, "and he said to them")
     }
+
+    // MARK: - Psalms 150:6 Exact Transcript Test
+
+    func testPsalm150Verse6Transcript() {
+        // Exact transcript from the failing case
+        let result = normalizer.normalize("In Psalm 150, verse 6, it says,")
+        print("Normalized: '\(result)'")
+        // "verse 6" should be converted to just "6"
+        XCTAssertTrue(result.contains("150"), "Should contain 150")
+        XCTAssertTrue(result.contains("6"), "Should contain 6")
+        XCTAssertFalse(result.contains("verse"), "Should have removed 'verse'")
+        // Expected result: "In Psalm 150, 6, it says,"
+    }
 }

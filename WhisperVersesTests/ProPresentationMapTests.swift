@@ -83,4 +83,69 @@ final class ProPresentationMapTests: XCTestCase {
         XCTAssertFalse(map.hasBook("GEN"))
         XCTAssertEqual(map.count, 1)
     }
+
+    // MARK: - Psalms 150:6 Specific Test
+
+    func testPsalms150_6_WithRealData() {
+        let bookIndex = TestHelpers.loadBookIndex()
+        guard let psalms = bookIndex.lookup("PSA") else {
+            XCTFail("Could not find Psalms in BibleBooks.json")
+            return
+        }
+
+        // Verify the Psalms data
+        XCTAssertEqual(psalms.code, "PSA")
+        XCTAssertEqual(psalms.name, "Psalms")
+        XCTAssertEqual(psalms.chapters.count, 150, "Psalms should have 150 chapters")
+        XCTAssertEqual(psalms.chapters[149], 6, "Psalm 150 should have 6 verses")
+
+        // Register Psalms with real chapter data
+        var map = ProPresentationMap()
+        map.register(
+            bookCode: psalms.code,
+            presentationUUID: "psalms-uuid",
+            chapters: psalms.chapters
+        )
+
+        // Look up Psalms 150:6
+        let ref = BibleReference(bookCode: "PSA", bookName: "Psalms", chapter: 150, verseStart: 6)
+        let location = map.lookup(ref)
+
+        XCTAssertNotNil(location, "Psalms 150:6 should be found")
+        XCTAssertEqual(location?.presentationUUID, "psalms-uuid")
+
+        // Calculate expected slide index: sum of all verses in chapters 1-149, plus verse offset (5)
+        let expectedIndex = psalms.chapters.prefix(149).reduce(0, +) + 5
+        XCTAssertEqual(location?.slideIndex, expectedIndex)
+
+        // Also verify Psalms 150:6 is valid according to BibleBook
+        XCTAssertTrue(psalms.isValid(chapter: 150, verse: 6), "Psalms 150:6 should be valid")
+    }
+
+    func testPsalms150_6_EdgeCases() {
+        let bookIndex = TestHelpers.loadBookIndex()
+        guard let psalms = bookIndex.lookup("PSA") else {
+            XCTFail("Could not find Psalms in BibleBooks.json")
+            return
+        }
+
+        var map = ProPresentationMap()
+        map.register(
+            bookCode: psalms.code,
+            presentationUUID: "psalms-uuid",
+            chapters: psalms.chapters
+        )
+
+        // Test edge: last verse of last chapter
+        let lastVerse = BibleReference(bookCode: "PSA", bookName: "Psalms", chapter: 150, verseStart: 6)
+        XCTAssertNotNil(map.lookup(lastVerse), "Last verse should be found")
+
+        // Test edge: verse 7 in chapter 150 (doesn't exist)
+        let invalidVerse = BibleReference(bookCode: "PSA", bookName: "Psalms", chapter: 150, verseStart: 7)
+        XCTAssertNil(map.lookup(invalidVerse), "Verse 7 doesn't exist in Psalm 150")
+
+        // Test edge: chapter 151 (doesn't exist)
+        let invalidChapter = BibleReference(bookCode: "PSA", bookName: "Psalms", chapter: 151, verseStart: 1)
+        XCTAssertNil(map.lookup(invalidChapter), "Chapter 151 doesn't exist in Psalms")
+    }
 }
