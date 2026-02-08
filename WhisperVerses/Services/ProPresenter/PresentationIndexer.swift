@@ -14,6 +14,11 @@ final class PresentationIndexer {
     private let api: ProPresenterAPI
     private let bookIndex: BibleBookIndex
 
+    /// Returns the list of Bible books that are NOT indexed from Pro7.
+    var missingBooks: [BibleBook] {
+        bookIndex.books.filter { !map.hasBook($0.code) }
+    }
+
     /// Regex to parse Pro7 presentation names like "Genesis 1_1-50_26 (KJV)".
     /// Captures everything before the verse range pattern as the book name.
     private let namePattern: NSRegularExpression? = {

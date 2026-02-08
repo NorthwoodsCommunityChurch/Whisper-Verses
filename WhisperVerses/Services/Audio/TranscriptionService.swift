@@ -116,11 +116,14 @@ final class TranscriptionService {
         )
 
         streamTranscriber = streamer
+        ThreadSafeAudioProcessor.appendToDebugLog("[Transcription] Starting stream transcription with silenceThreshold=0.3, useVAD=true\n")
 
         transcriptionTask = Task {
             do {
                 try await streamer.startStreamTranscription()
+                ThreadSafeAudioProcessor.appendToDebugLog("[Transcription] Stream transcription ended normally\n")
             } catch {
+                ThreadSafeAudioProcessor.appendToDebugLog("[Transcription] Stream transcription error: \(error)\n")
                 if !Task.isCancelled {
                     await MainActor.run { [weak self] in
                         self?.errorMessage = "Transcription error: \(error.localizedDescription)"
@@ -142,11 +145,21 @@ final class TranscriptionService {
         currentText = ""
     }
 
+    /// Debug: track last VAD log time
+    private var lastVADLogTime: Date = .distantPast
+
     @MainActor
     private func handleStateChange(
         oldState: AudioStreamTranscriber.State,
         newState: AudioStreamTranscriber.State
     ) {
+        // Debug VAD state (every 2 seconds)
+        let now = Date()
+        if now.timeIntervalSince(lastVADLogTime) >= 2.0 {
+            lastVADLogTime = now
+            ThreadSafeAudioProcessor.appendToDebugLog("[VAD] isRecording=\(newState.isRecording), bufferEnergy=\(newState.bufferEnergy.count), currentText='\(newState.currentText.prefix(50))', unconfirmed=\(newState.unconfirmedSegments.count), confirmed=\(newState.confirmedSegments.count)\n")
+        }
+
         // Update hypothesis text from unconfirmed segments.
         // Only clear hypothesis when there's genuinely nothing pending.
         let unconfirmedText = newState.unconfirmedSegments.map(\.text).joined(separator: " ")

@@ -25,7 +25,7 @@ struct OptionsPanelView: View {
                     }
                     .labelsHidden()
 
-                    AudioLevelView(level: appState.audioDeviceManager.currentLevel)
+                    AudioLevelView(level: appState.isListening ? appState.audioLevel : appState.audioDeviceManager.currentLevel)
                         .frame(width: 60, height: 16)
                 }
             }
@@ -117,9 +117,24 @@ struct OptionsPanelView: View {
                             .font(.caption2)
                             .foregroundStyle(.red)
                     } else if indexer.indexedBookCount > 0 {
-                        Text("Indexed \(indexer.indexedBookCount)/66 books")
-                            .font(.caption2)
-                            .foregroundStyle(.green)
+                        HStack(spacing: 8) {
+                            Text("Indexed \(indexer.indexedBookCount)/66 books")
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+
+                            if !indexer.missingBooks.isEmpty {
+                                Menu {
+                                    ForEach(indexer.missingBooks) { book in
+                                        Text(book.name)
+                                    }
+                                } label: {
+                                    Label("\(indexer.missingBooks.count) missing", systemImage: "exclamationmark.triangle")
+                                        .font(.caption2)
+                                }
+                                .menuStyle(.borderlessButton)
+                                .fixedSize()
+                            }
+                        }
                     }
                 }
             }

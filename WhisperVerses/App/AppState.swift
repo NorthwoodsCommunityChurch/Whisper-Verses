@@ -214,14 +214,20 @@ final class AppState {
             return
         }
 
+        // Stop our level monitoring to avoid AVAudioEngine conflicts with WhisperKit
+        audioDeviceManager.stopLevelMonitoring()
+
         await service.startListening()
-        isListening = service.isListening
+
+        await MainActor.run {
+            self.isListening = service.isListening
+        }
 
         if let error = service.errorMessage {
             showError(error)
         }
 
-        // Poll hypothesis text for live partial results
+        // Poll hypothesis text and audio level for live partial results
         if isListening {
             hypothesisPollTask?.cancel()
             hypothesisPollTask = Task { [weak self] in
@@ -230,6 +236,8 @@ final class AppState {
                     guard let self, !Task.isCancelled else { return }
                     await MainActor.run {
                         self.currentHypothesis = service.currentText
+                        // Get audio level from WhisperKit's processor during transcription
+                        self.audioLevel = ThreadSafeAudioProcessor.currentRMSLevel
                     }
                 }
             }
@@ -242,6 +250,8 @@ final class AppState {
         transcriptionService?.stopListening()
         isListening = false
         currentHypothesis = ""
+        // Restart level monitoring now that WhisperKit's audio engine is stopped
+        audioDeviceManager.startLevelMonitoring()
     }
 
     func resetWhisper() {

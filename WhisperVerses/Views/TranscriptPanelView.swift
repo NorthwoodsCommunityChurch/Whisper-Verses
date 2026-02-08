@@ -26,10 +26,10 @@ struct TranscriptPanelView: View {
 
             Divider()
 
-            // Transcript content
+            // Transcript content - use LazyVStack for performance with many segments
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
+                    LazyVStack(alignment: .leading, spacing: 4) {
                         ForEach(appState.confirmedSegments) { segment in
                             TranscriptRow(segment: segment)
                                 .id(segment.id)
@@ -47,20 +47,22 @@ struct TranscriptPanelView: View {
                                     .font(.body)
                                     .foregroundStyle(.secondary)
                                     .italic()
+                                    .textSelection(.enabled)
                             }
                             .padding(.horizontal)
                             .id("hypothesis")
                         }
+
+                        // Invisible anchor for auto-scroll with buffer space
+                        Color.clear
+                            .frame(height: 100)
+                            .id("bottomAnchor")
                     }
-                    .textSelection(.enabled)
                     .padding(.top, 8)
-                    .padding(.bottom, 40)
                 }
                 .scrollIndicators(.never)
                 .onChange(of: appState.confirmedSegments.count) {
-                    if let last = appState.confirmedSegments.last {
-                        proxy.scrollTo(last.id, anchor: .bottom)
-                    }
+                    proxy.scrollTo("bottomAnchor", anchor: .bottom)
                 }
             }
 
@@ -96,10 +98,12 @@ struct TranscriptRow: View {
             if segment.detectedReferences.isEmpty {
                 Text(segment.text)
                     .font(.body)
+                    .textSelection(.enabled)
             } else {
                 // Highlight text containing verse references
                 Text(segment.text)
                     .font(.body)
+                    .textSelection(.enabled)
                     .padding(2)
                     .background(Color.yellow.opacity(0.2), in: RoundedRectangle(cornerRadius: 3))
             }
