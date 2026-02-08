@@ -1,6 +1,9 @@
 import CoreAudio
 import Foundation
+import os.log
 import SwiftUI
+
+private let logger = Logger(subsystem: "com.whisperverses", category: "AppState")
 
 @Observable
 final class AppState {
@@ -162,7 +165,29 @@ final class AppState {
             service.onSegmentConfirmed = { [weak self] segment in
                 guard let self else { return }
 
-                let detected = detector.detect(in: segment.text)
+                // Detect verses in current segment
+                var detected = detector.detect(in: segment.text)
+                var detectedKeys = Set(detected.map { $0.reference.displayString })
+
+                // Also check combined recent segments for cross-segment references
+                // (e.g., "2 Peter 1" in one segment, "verses 20 to 21" in next)
+                if !self.confirmedSegments.isEmpty {
+                    let recentCount = min(2, self.confirmedSegments.count)
+                    let recentTexts = self.confirmedSegments.suffix(recentCount).map { $0.text }
+                    let combinedText = (recentTexts + [segment.text]).joined(separator: " ")
+
+                    let combinedDetected = detector.detect(in: combinedText)
+                    for verse in combinedDetected {
+                        let key = verse.reference.displayString
+                        // Only add if not already detected in current segment
+                        if !detectedKeys.contains(key) {
+                            logger.info("Cross-segment detection: Found '\(key)' spanning segments")
+                            detected.append(verse)
+                            detectedKeys.insert(key)
+                        }
+                    }
+                }
+
                 let enrichedSegment = TranscriptSegment(
                     text: segment.text,
                     startTime: segment.startTime,
@@ -336,7 +361,7 @@ final class AppState {
             )
             let key = singleRef.displayString
             let alreadyCaptured = capturedVerseKeys.contains(key)
-            print("captureVerseSlide: Checking '\(key)' - alreadyCaptured: \(alreadyCaptured)")
+            logger.debug("captureVerseSlide: Checking '\(key)' - alreadyCaptured: \(alreadyCaptured)")
             if !alreadyCaptured {
                 versesToCapture.append(singleRef)
             }
@@ -344,7 +369,7 @@ final class AppState {
 
         // All verses in this detection already captured → mark as duplicate
         if versesToCapture.isEmpty {
-            print("captureVerseSlide: Marking as DUPLICATE - all verses already captured")
+            logger.info("captureVerseSlide: Marking as DUPLICATE - all verses already captured")
             await MainActor.run {
                 if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
                     self.detectedVerses[idx].status = .duplicate
@@ -357,9 +382,9 @@ final class AppState {
         let firstLookup = versesToCapture.first.flatMap { indexer.map.lookup($0) }
         if firstLookup == nil {
             if let firstRef = versesToCapture.first {
-                print("captureVerseSlide: LOOKUP FAILED for \(firstRef.displayString)")
-                print("  - map.hasBook('\(firstRef.bookCode)'): \(indexer.map.hasBook(firstRef.bookCode))")
-                print("  - map.count: \(indexer.map.count)")
+                logger.error("captureVerseSlide: LOOKUP FAILED for \(firstRef.displayString)")
+                logger.error("  - map.hasBook('\(firstRef.bookCode)'): \(indexer.map.hasBook(firstRef.bookCode))")
+                logger.error("  - map.count: \(indexer.map.count)")
             }
             await MainActor.run {
                 if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
@@ -398,7 +423,7 @@ final class AppState {
                 capturedCount += 1
 
                 await MainActor.run {
-                    print("captureVerseSlide: CAPTURED '\(ref.displayString)' - adding to capturedVerseKeys")
+                    logger.info("captureVerseSlide: CAPTURED '\(ref.displayString)' - adding to capturedVerseKeys")
                     self.capturedVerseKeys.insert(ref.displayString)
                     self.capturedImages.append(CapturedVerse(
                         reference: ref.displayString,

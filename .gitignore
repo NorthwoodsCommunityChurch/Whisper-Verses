@@ -37,7 +37,8 @@ Package.resolved
 *.d
 
 # WhisperKit models (large, downloaded at runtime)
-Models/
+# Note: /Models/ (at root) to avoid ignoring WhisperVerses/Models/
+/Models/
 
 # IDE
 .vscode/

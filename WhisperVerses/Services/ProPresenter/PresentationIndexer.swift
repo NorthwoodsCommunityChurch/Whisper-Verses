@@ -1,4 +1,7 @@
 import Foundation
+import os.log
+
+private let logger = Logger(subsystem: "com.whisperverses", category: "PresentationIndexer")
 
 /// Builds a mapping from Bible book codes to ProPresenter presentation UUIDs.
 /// Queries Pro7 at startup to find all Bible presentations in the configured library,
@@ -60,26 +63,26 @@ final class PresentationIndexer {
             var newMap = ProPresentationMap()
             var count = 0
 
-            print("PresentationIndexer: Processing \(items.count) items from library '\(libraryName)'")
+            logger.info("PresentationIndexer: Processing \(items.count) items from library '\(libraryName)'")
 
             for item in items {
                 guard let bookName = parseBookName(from: item.name) else {
-                    print("PresentationIndexer: SKIPPED '\(item.name)' - could not parse book name")
+                    logger.debug("PresentationIndexer: SKIPPED '\(item.name)' - could not parse book name")
                     continue
                 }
 
                 // Look up the book using exact match first, then fuzzy
                 guard let book = matcher.match(bookName) else {
-                    print("PresentationIndexer: SKIPPED '\(item.name)' - no match for '\(bookName)'")
+                    logger.warning("PresentationIndexer: SKIPPED '\(item.name)' - no match for '\(bookName)'")
                     continue
                 }
 
                 // Warn if overwriting an existing book (duplicate detection)
                 if newMap.hasBook(book.code) {
-                    print("PresentationIndexer: WARNING - Overwriting '\(book.code)' with '\(item.name)'")
+                    logger.warning("PresentationIndexer: WARNING - Overwriting '\(book.code)' with '\(item.name)'")
                 }
 
-                print("PresentationIndexer: Indexed \(book.code) (\(book.name)) from '\(item.name)'")
+                logger.info("PresentationIndexer: Indexed \(book.code) (\(book.name)) from '\(item.name)'")
                 newMap.register(
                     bookCode: book.code,
                     presentationUUID: item.uuid,
@@ -94,7 +97,7 @@ final class PresentationIndexer {
                 self.isIndexing = false
             }
 
-            print("PresentationIndexer: Indexed \(count)/66 Bible books")
+            logger.info("PresentationIndexer: Indexed \(count)/66 Bible books")
 
         } catch {
             await setError("Indexing failed: \(error.localizedDescription)")
@@ -119,7 +122,7 @@ final class PresentationIndexer {
     }
 
     private func setError(_ message: String) async {
-        print("PresentationIndexer: \(message)")
+        logger.error("PresentationIndexer: \(message)")
         await MainActor.run {
             self.errorMessage = message
             self.isIndexing = false

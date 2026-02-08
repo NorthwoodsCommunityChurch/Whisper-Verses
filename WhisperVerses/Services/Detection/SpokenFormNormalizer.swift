@@ -71,6 +71,22 @@ struct SpokenFormNormalizer {
             return "\(groups[0])-\(groups[1])"
         }
 
+        // 8. Handle "chapter in verse-range" pattern: "1 in 20-21" → "1:20-21"
+        // This occurs when "verses X to Y" is normalized to "X-Y" but preceded by chapter
+        result = replacePattern(
+            #"(\d{1,3})\s+in\s+(\d{1,3})(?:-(\d{1,3}))?"#,
+            in: result
+        ) { _, groups in
+            guard groups.count >= 2 else { return nil }
+            let chapter = groups[0]
+            let verseStart = groups[1]
+            if groups.count >= 3 {
+                let verseEnd = groups[2]
+                return "\(chapter):\(verseStart)-\(verseEnd)"
+            }
+            return "\(chapter):\(verseStart)"
+        }
+
         return result
     }
 
