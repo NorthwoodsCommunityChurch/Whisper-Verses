@@ -35,6 +35,7 @@ final class AppState {
     var capturedImages: [CapturedVerse] = []
     var capturedVerseKeys: Set<String> = []  // Tracks individual verses already captured (e.g., "John 3:16")
     var nextSequenceNumber: Int = 1
+    var isOutputFolderAvailable: Bool = true  // False if output folder (e.g., SMB share) is not writable
 
     // MARK: - Settings
     var confidenceThreshold: Double = 0.7
@@ -58,11 +59,46 @@ final class AppState {
     init() {
         loadSettings()
         ensureOutputFolder()
+        checkOutputFolderAvailability()
         updateService.startPeriodicChecks()
     }
 
     private func ensureOutputFolder() {
         try? FileManager.default.createDirectory(at: outputFolderURL, withIntermediateDirectories: true)
+    }
+
+    /// Check if the output folder is writable (important for SMB shares that may not be mounted)
+    func checkOutputFolderAvailability() {
+        let fm = FileManager.default
+
+        // First check if path exists
+        var isDirectory: ObjCBool = false
+        let exists = fm.fileExists(atPath: outputFolderURL.path, isDirectory: &isDirectory)
+
+        if !exists || !isDirectory.boolValue {
+            // Try to create it
+            do {
+                try fm.createDirectory(at: outputFolderURL, withIntermediateDirectories: true)
+                isOutputFolderAvailable = true
+                logger.info("Output folder created: \(self.outputFolderURL.path)")
+            } catch {
+                isOutputFolderAvailable = false
+                logger.warning("Output folder not available: \(self.outputFolderURL.path) - \(error.localizedDescription)")
+            }
+            return
+        }
+
+        // Try to write a test file to verify writability
+        let testFile = outputFolderURL.appendingPathComponent(".writetest")
+        do {
+            try Data().write(to: testFile)
+            try fm.removeItem(at: testFile)
+            isOutputFolderAvailable = true
+            logger.info("Output folder is writable: \(self.outputFolderURL.path)")
+        } catch {
+            isOutputFolderAvailable = false
+            logger.warning("Output folder not writable: \(self.outputFolderURL.path) - \(error.localizedDescription)")
+        }
     }
 
     func clearOutputFolder() {
@@ -151,6 +187,9 @@ final class AppState {
     }
 
     func startListening() async {
+        // Check if output folder is available (SMB share might not be mounted)
+        checkOutputFolderAvailability()
+
         // Auto-index if connected but not yet indexed
         if isProPresenterConnected,
            presentationIndexer == nil || presentationIndexer?.map.isEmpty == true {

@@ -158,6 +158,31 @@ struct OptionsPanelView: View {
                     }
                     .buttonStyle(.borderless)
                 }
+
+                // Warning if output folder not available (e.g., SMB share not mounted)
+                if !appState.isOutputFolderAvailable {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text("Folder not available")
+                            .font(.caption)
+                        Spacer()
+                        Button("Retry") {
+                            appState.checkOutputFolderAvailability()
+                        }
+                        .font(.caption2)
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        Button("Change") {
+                            selectOutputFolder()
+                        }
+                        .font(.caption2)
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                    .padding(6)
+                    .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
+                }
             }
 
             // Confidence Threshold
@@ -253,6 +278,7 @@ struct OptionsPanelView: View {
         if panel.runModal() == .OK, let url = panel.url {
             appState.outputFolderURL = url
             appState.saveSettings()
+            appState.checkOutputFolderAvailability()
         }
     }
 }
