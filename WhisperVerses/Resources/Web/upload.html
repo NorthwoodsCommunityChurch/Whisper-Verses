@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhisperVerses - Upload Manuscript</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container upload-page">
+        <header>
+            <h1>WhisperVerses</h1>
+            <p class="subtitle">Manuscript Follow-Along</p>
+        </header>
+
+        <main>
+            <div class="upload-zone" id="dropZone">
+                <div class="upload-icon">📄</div>
+                <h2>Upload Manuscript</h2>
+                <p>Drag and drop your manuscript file here</p>
+                <p class="file-types">Supports .txt and .docx files</p>
+
+                <div class="upload-divider">
+                    <span>or</span>
+                </div>
+
+                <label class="file-button">
+                    <input type="file" id="fileInput" accept=".txt,.docx" hidden>
+                    Choose File
+                </label>
+            </div>
+
+            <div class="status" id="status"></div>
+        </main>
+
+        <footer>
+            <p>Upload your sermon manuscript to see real-time position tracking</p>
+        </footer>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const status = document.getElementById('status');
+
+        // Drag and drop handlers
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+
+        // Click to upload
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+
+        async function handleFile(file) {
+            const validTypes = ['text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            const validExtensions = ['.txt', '.docx'];
+
+            const hasValidType = validTypes.includes(file.type);
+            const hasValidExtension = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+
+            if (!hasValidType && !hasValidExtension) {
+                showStatus('Please upload a .txt or .docx file', 'error');
+                return;
+            }
+
+            showStatus('Uploading...', 'info');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Store text in sessionStorage for the follow page
+                    sessionStorage.setItem('manuscriptText', result.text);
+                    sessionStorage.setItem('manuscriptFilename', file.name);
+
+                    showStatus('Upload successful! Redirecting...', 'success');
+
+                    setTimeout(() => {
+                        window.location.href = '/follow';
+                    }, 500);
+                } else {
+                    showStatus('Failed to parse file', 'error');
+                }
+            } catch (error) {
+                showStatus('Upload failed: ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+    </script>
+</body>
+</html>

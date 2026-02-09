@@ -18,11 +18,14 @@ targets:
     sources:
       - WhisperVerses
     resources:
-      - WhisperVerses/Resources
+      - WhisperVerses/Resources/Assets.xcassets
+      - WhisperVerses/Resources/BibleBooks.json
+      - path: WhisperVerses/Resources/Web
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.northwoods.WhisperVerses
-        MARKETING_VERSION: "1.0.3"
+        MARKETING_VERSION: "1.0.4"
         CURRENT_PROJECT_VERSION: 1
         INFOPLIST_FILE: WhisperVerses/Info.plist
         CODE_SIGN_ENTITLEMENTS: WhisperVerses/WhisperVerses.entitlements

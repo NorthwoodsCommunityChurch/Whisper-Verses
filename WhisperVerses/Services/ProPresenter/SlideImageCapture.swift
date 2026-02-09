@@ -7,6 +7,28 @@ import AppKit
 /// converts it to PNG, and saves it to the output folder.
 struct SlideImageCapture {
 
+    /// Fetch slide image from Pro7 and convert to PNG data.
+    /// Does not save - returns raw PNG data for caller to write to multiple destinations.
+    static func fetchSlideImage(
+        api: ProPresenterAPI,
+        presentationUUID: String,
+        slideIndex: Int
+    ) async throws -> Data {
+        // 1. Get slide image from Pro7 at full 1080p resolution
+        let imageData = try await api.getSlideImage(
+            presentationUUID: presentationUUID,
+            slideIndex: slideIndex,
+            quality: 1920
+        )
+
+        // 2. Convert to PNG (handles both TIFF and JPEG source formats)
+        guard let pngData = ImageConverter.toPNG(imageData) else {
+            throw CaptureError.conversionFailed
+        }
+
+        return pngData
+    }
+
     /// Capture a verse's slide image from Pro7 and save as PNG.
     /// Returns the saved file URL and filename on success.
     static func captureAndSave(

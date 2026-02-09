@@ -44,6 +44,18 @@ struct SpokenFormNormalizer {
             return "\(vs)-\(ve)"
         }
 
+        // 3.5. "verses X and Y" → "X-Y" (range with "and" connector)
+        // Handles: "verses 20 and 21", "verse 28 and 29"
+        result = replacePattern(
+            #"(?i)\bverse[s]?\s+(\w+(?:[\s-]\w+)?)\s+and\s+(\w+(?:[\s-]\w+)?)"#,
+            in: result
+        ) { _, groups in
+            guard groups.count >= 2 else { return nil }
+            let vs = NumberWordConverter.convert(groups[0]) ?? groups[0]
+            let ve = NumberWordConverter.convert(groups[1]) ?? groups[1]
+            return "\(vs)-\(ve)"
+        }
+
         // 4. "verse X" → just the number
         result = replacePattern(
             #"(?i)\bverse[s]?\s+(\w+(?:[\s-]\w+)?)\b"#,

@@ -30,12 +30,13 @@ final class AppState {
     var bibleLibraryName: String = "Default"
 
     // MARK: - Output
-    var outputFolderURL: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        .appendingPathComponent("ProPresenter/WhisperVerses", isDirectory: true)
+    private static let defaultOutputFolder: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        .appendingPathComponent("Whisper Drops", isDirectory: true)
+    var outputFolderURLs: [URL] = [defaultOutputFolder]
+    var outputFolderAvailability: [URL: Bool] = [:]  // Tracks which folders are writable
     var capturedImages: [CapturedVerse] = []
     var capturedVerseKeys: Set<String> = []  // Tracks individual verses already captured (e.g., "John 3:16")
-    var nextSequenceNumber: Int = 1
-    var isOutputFolderAvailable: Bool = true  // False if output folder (e.g., SMB share) is not writable
+    var nextSequenceNumbers: [URL: Int] = [:]  // Per-folder sequence numbers
 
     // MARK: - Settings
     var confidenceThreshold: Double = 0.7
@@ -53,64 +54,99 @@ final class AppState {
     var proPresenterAPI = ProPresenterAPI()
     var presentationIndexer: PresentationIndexer?
     var updateService = UpdateService()
+    var webServer = WebServer()
     @ObservationIgnored private var reconnectTask: Task<Void, Never>?
     @ObservationIgnored private var hypothesisPollTask: Task<Void, Never>?
 
+    // MARK: - Web Server Settings
+    var isWebServerEnabled: Bool = false
+    var webServerPort: UInt16 = 8080
+
+    // MARK: - HyperDeck Settings
+    var hyperDeckClient = HyperDeckClient()
+    var hyperDeckHost: String = ""
+    var hyperDeckPort: UInt16 = 9993
+    var isHyperDeckEnabled: Bool = false
+
     init() {
         loadSettings()
-        ensureOutputFolder()
+        ensureOutputFolders()
         checkOutputFolderAvailability()
         updateService.startPeriodicChecks()
     }
 
-    private func ensureOutputFolder() {
-        try? FileManager.default.createDirectory(at: outputFolderURL, withIntermediateDirectories: true)
+    private func ensureOutputFolders() {
+        for folderURL in outputFolderURLs {
+            try? FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+        }
     }
 
-    /// Check if the output folder is writable (important for SMB shares that may not be mounted)
+    /// Check if output folders are writable (important for SMB shares that may not be mounted)
     func checkOutputFolderAvailability() {
         let fm = FileManager.default
 
-        // First check if path exists
-        var isDirectory: ObjCBool = false
-        let exists = fm.fileExists(atPath: outputFolderURL.path, isDirectory: &isDirectory)
+        for folderURL in outputFolderURLs {
+            // First check if path exists
+            var isDirectory: ObjCBool = false
+            let exists = fm.fileExists(atPath: folderURL.path, isDirectory: &isDirectory)
 
-        if !exists || !isDirectory.boolValue {
-            // Try to create it
-            do {
-                try fm.createDirectory(at: outputFolderURL, withIntermediateDirectories: true)
-                isOutputFolderAvailable = true
-                logger.info("Output folder created: \(self.outputFolderURL.path)")
-            } catch {
-                isOutputFolderAvailable = false
-                logger.warning("Output folder not available: \(self.outputFolderURL.path) - \(error.localizedDescription)")
+            if !exists || !isDirectory.boolValue {
+                // Try to create it
+                do {
+                    try fm.createDirectory(at: folderURL, withIntermediateDirectories: true)
+                    outputFolderAvailability[folderURL] = true
+                    logger.info("Output folder created: \(folderURL.path)")
+                } catch {
+                    outputFolderAvailability[folderURL] = false
+                    logger.warning("Output folder not available: \(folderURL.path) - \(error.localizedDescription)")
+                }
+                continue
             }
-            return
-        }
 
-        // Try to write a test file to verify writability
-        let testFile = outputFolderURL.appendingPathComponent(".writetest")
-        do {
-            try Data().write(to: testFile)
-            try fm.removeItem(at: testFile)
-            isOutputFolderAvailable = true
-            logger.info("Output folder is writable: \(self.outputFolderURL.path)")
-        } catch {
-            isOutputFolderAvailable = false
-            logger.warning("Output folder not writable: \(self.outputFolderURL.path) - \(error.localizedDescription)")
+            // Try to write a test file to verify writability
+            let testFile = folderURL.appendingPathComponent(".writetest")
+            do {
+                try Data().write(to: testFile)
+                try fm.removeItem(at: testFile)
+                outputFolderAvailability[folderURL] = true
+                logger.info("Output folder is writable: \(folderURL.path)")
+            } catch {
+                outputFolderAvailability[folderURL] = false
+                logger.warning("Output folder not writable: \(folderURL.path) - \(error.localizedDescription)")
+            }
         }
     }
 
-    func clearOutputFolder() {
+    func clearOutputFolders() {
         let fm = FileManager.default
-        if let files = try? fm.contentsOfDirectory(at: outputFolderURL, includingPropertiesForKeys: nil) {
-            for file in files where file.pathExtension == "png" {
-                try? fm.removeItem(at: file)
+        for folderURL in outputFolderURLs {
+            if let files = try? fm.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: nil) {
+                for file in files where file.pathExtension == "png" {
+                    try? fm.removeItem(at: file)
+                }
             }
+            nextSequenceNumbers[folderURL] = 1
         }
         capturedImages.removeAll()
         capturedVerseKeys.removeAll()
-        nextSequenceNumber = 1
+        detectedVerses.removeAll()
+    }
+
+    /// Add a new output folder
+    func addOutputFolder(_ url: URL) {
+        guard !outputFolderURLs.contains(url) else { return }
+        outputFolderURLs.append(url)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        checkOutputFolderAvailability()
+        saveSettings()
+    }
+
+    /// Remove an output folder
+    func removeOutputFolder(_ url: URL) {
+        outputFolderURLs.removeAll { $0 == url }
+        outputFolderAvailability.removeValue(forKey: url)
+        nextSequenceNumbers.removeValue(forKey: url)
+        saveSettings()
     }
 
     // MARK: - Settings Persistence
@@ -125,8 +161,12 @@ final class AppState {
         if let name = defaults.string(forKey: "bibleLibraryName"), name != "Bible KJV" {
             bibleLibraryName = name
         }
-        if let path = defaults.string(forKey: "outputFolderPath") {
-            outputFolderURL = URL(fileURLWithPath: path)
+        // Load output folders - migrate from old single-folder format if needed
+        if let paths = defaults.stringArray(forKey: "outputFolderPaths"), !paths.isEmpty {
+            outputFolderURLs = paths.map { URL(fileURLWithPath: $0) }
+        } else if let oldPath = defaults.string(forKey: "outputFolderPath") {
+            // Migrate from old single-folder format
+            outputFolderURLs = [URL(fileURLWithPath: oldPath)]
         }
         let threshold = defaults.double(forKey: "confidenceThreshold")
         if threshold > 0 { confidenceThreshold = threshold }
@@ -137,6 +177,26 @@ final class AppState {
         if savedGain > 0 { inputGain = savedGain }
         // Sync to the static property used by audio processor
         ThreadSafeAudioProcessor.inputGain = inputGain
+
+        // Web server settings
+        let savedWebPort = defaults.integer(forKey: "webServerPort")
+        if savedWebPort > 0 { webServerPort = UInt16(savedWebPort) }
+        isWebServerEnabled = defaults.bool(forKey: "webServerEnabled")
+        if isWebServerEnabled {
+            webServer.hyperDeckClient = hyperDeckClient
+            webServer.start(port: webServerPort)
+        }
+
+        // HyperDeck settings
+        if let savedHyperDeckHost = defaults.string(forKey: "hyperDeckHost") {
+            hyperDeckHost = savedHyperDeckHost
+        }
+        let savedHyperDeckPort = defaults.integer(forKey: "hyperDeckPort")
+        if savedHyperDeckPort > 0 { hyperDeckPort = UInt16(savedHyperDeckPort) }
+        isHyperDeckEnabled = defaults.bool(forKey: "hyperDeckEnabled")
+        if isHyperDeckEnabled && !hyperDeckHost.isEmpty {
+            hyperDeckClient.connect(host: hyperDeckHost, port: hyperDeckPort)
+        }
     }
 
     func saveSettings() {
@@ -144,12 +204,23 @@ final class AppState {
         defaults.set(proPresenterHost, forKey: "proPresenterHost")
         defaults.set(proPresenterPort, forKey: "proPresenterPort")
         defaults.set(bibleLibraryName, forKey: "bibleLibraryName")
-        defaults.set(outputFolderURL.path, forKey: "outputFolderPath")
+        // Save output folders as array of paths
+        let paths = outputFolderURLs.map { $0.path }
+        defaults.set(paths, forKey: "outputFolderPaths")
         defaults.set(confidenceThreshold, forKey: "confidenceThreshold")
         if let deviceID = selectedAudioDeviceID {
             defaults.set(Int(deviceID), forKey: "selectedAudioDeviceID")
         }
         defaults.set(inputGain, forKey: "inputGain")
+
+        // Web server settings
+        defaults.set(Int(webServerPort), forKey: "webServerPort")
+        defaults.set(isWebServerEnabled, forKey: "webServerEnabled")
+
+        // HyperDeck settings
+        defaults.set(hyperDeckHost, forKey: "hyperDeckHost")
+        defaults.set(Int(hyperDeckPort), forKey: "hyperDeckPort")
+        defaults.set(isHyperDeckEnabled, forKey: "hyperDeckEnabled")
     }
 
     // MARK: - Error Display
@@ -204,12 +275,15 @@ final class AppState {
             service.onSegmentConfirmed = { [weak self] segment in
                 guard let self else { return }
 
-                // Detect verses in current segment
-                var detected = detector.detect(in: segment.text)
+                // Detect verses in current segment only (for highlighting)
+                let detected = detector.detect(in: segment.text)
                 var detectedKeys = Set(detected.map { $0.reference.displayString })
 
                 // Also check combined recent segments for cross-segment references
                 // (e.g., "2 Peter 1" in one segment, "verses 20 to 21" in next)
+                // These are tracked for capture but NOT added to segment's references
+                // because the segment doesn't contain the complete reference text
+                var crossSegmentDetected: [DetectedVerse] = []
                 if !self.confirmedSegments.isEmpty {
                     let recentCount = min(2, self.confirmedSegments.count)
                     let recentTexts = self.confirmedSegments.suffix(recentCount).map { $0.text }
@@ -221,12 +295,13 @@ final class AppState {
                         // Only add if not already detected in current segment
                         if !detectedKeys.contains(key) {
                             logger.info("Cross-segment detection: Found '\(key)' spanning segments")
-                            detected.append(verse)
+                            crossSegmentDetected.append(verse)
                             detectedKeys.insert(key)
                         }
                     }
                 }
 
+                // Only highlight segments that contain complete verse references
                 let enrichedSegment = TranscriptSegment(
                     text: segment.text,
                     startTime: segment.startTime,
@@ -236,7 +311,9 @@ final class AppState {
                 )
                 self.confirmedSegments.append(enrichedSegment)
 
-                for verse in detected {
+                // Process all detected verses (both in-segment and cross-segment) for capture
+                let allDetected = detected + crossSegmentDetected
+                for verse in allDetected {
                     self.detectedVerses.append(verse)
                     if self.isProPresenterConnected,
                        let indexer = self.presentationIndexer,
@@ -302,10 +379,50 @@ final class AppState {
                         self.currentHypothesis = service.currentText
                         // Get audio level from WhisperKit's processor during transcription
                         self.audioLevel = ThreadSafeAudioProcessor.currentRMSLevel
+
+                        // Broadcast to web clients if server is running
+                        if self.webServer.isRunning {
+                            let confirmedText = self.confirmedSegments.map(\.text).joined(separator: " ")
+                            self.webServer.broadcast(
+                                confirmedText: confirmedText,
+                                hypothesis: self.currentHypothesis,
+                                audioLevel: self.audioLevel
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+
+    // MARK: - Web Server
+
+    func startWebServer() {
+        webServer.hyperDeckClient = hyperDeckClient
+        webServer.start(port: webServerPort)
+        isWebServerEnabled = true
+        saveSettings()
+    }
+
+    func stopWebServer() {
+        webServer.stop()
+        isWebServerEnabled = false
+        saveSettings()
+    }
+
+    // MARK: - HyperDeck
+
+    func connectHyperDeck() {
+        guard !hyperDeckHost.isEmpty else { return }
+        hyperDeckClient.connect(host: hyperDeckHost, port: hyperDeckPort)
+        isHyperDeckEnabled = true
+        saveSettings()
+    }
+
+    func disconnectHyperDeck() {
+        hyperDeckClient.disconnect()
+        isHyperDeckEnabled = false
+        saveSettings()
     }
 
     func stopListening() {
@@ -402,6 +519,8 @@ final class AppState {
             let alreadyCaptured = capturedVerseKeys.contains(key)
             logger.debug("captureVerseSlide: Checking '\(key)' - alreadyCaptured: \(alreadyCaptured)")
             if !alreadyCaptured {
+                // Insert immediately to prevent race condition with concurrent detections
+                capturedVerseKeys.insert(key)
                 versesToCapture.append(singleRef)
             }
         }
@@ -445,32 +564,14 @@ final class AppState {
         for ref in versesToCapture {
             guard let location = indexer.map.lookup(ref) else { continue }
 
-            let seqNum = nextSequenceNumber
-            await MainActor.run { self.nextSequenceNumber += 1 }
-
+            // Fetch image data once from ProPresenter
+            let imageData: Data
             do {
-                let (fileURL, filename) = try await SlideImageCapture.captureAndSave(
+                imageData = try await SlideImageCapture.fetchSlideImage(
                     api: proPresenterAPI,
                     presentationUUID: location.presentationUUID,
-                    slideIndex: location.slideIndex,
-                    reference: ref,
-                    sequenceNumber: seqNum,
-                    outputFolder: outputFolderURL
+                    slideIndex: location.slideIndex
                 )
-
-                lastFilename = filename
-                capturedCount += 1
-
-                await MainActor.run {
-                    logger.info("captureVerseSlide: CAPTURED '\(ref.displayString)' - adding to capturedVerseKeys")
-                    self.capturedVerseKeys.insert(ref.displayString)
-                    self.capturedImages.append(CapturedVerse(
-                        reference: ref.displayString,
-                        filename: filename,
-                        imageURL: fileURL,
-                        timestamp: Date()
-                    ))
-                }
             } catch {
                 await MainActor.run {
                     if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
@@ -478,6 +579,46 @@ final class AppState {
                     }
                 }
                 return
+            }
+
+            // Write to ALL available output folders
+            var firstFileURL: URL?
+            for folderURL in outputFolderURLs {
+                guard outputFolderAvailability[folderURL] == true else {
+                    logger.warning("Skipping unavailable folder: \(folderURL.path)")
+                    continue
+                }
+
+                let seqNum = nextSequenceNumbers[folderURL, default: 1]
+                let filename = String(format: "%03d_%@.png", seqNum, ref.filenameString)
+                let fileURL = folderURL.appendingPathComponent(filename)
+
+                do {
+                    try imageData.write(to: fileURL)
+                    await MainActor.run {
+                        self.nextSequenceNumbers[folderURL] = seqNum + 1
+                    }
+                    lastFilename = filename
+                    if firstFileURL == nil { firstFileURL = fileURL }
+                    logger.info("Saved \(filename) to \(folderURL.lastPathComponent)")
+                } catch {
+                    logger.error("Failed to write to \(folderURL.path): \(error.localizedDescription)")
+                }
+            }
+
+            capturedCount += 1
+
+            await MainActor.run {
+                logger.info("captureVerseSlide: CAPTURED '\(ref.displayString)'")
+                // Note: capturedVerseKeys already updated before capture started (race condition fix)
+                if let fileURL = firstFileURL {
+                    self.capturedImages.append(CapturedVerse(
+                        reference: ref.displayString,
+                        filename: lastFilename,
+                        imageURL: fileURL,
+                        timestamp: Date()
+                    ))
+                }
             }
         }
 

@@ -17,6 +17,7 @@ final class VerseDetector {
     private let colonRegex: NSRegularExpression?   // "3:16" or "3:16-18"
     private let commaRegex: NSRegularExpression?   // "3, 16" or "3,16" (common transcription of spoken refs)
     private let andRegex: NSRegularExpression?     // "3 and 16" (spoken: "chapter 3 and verse 16")
+    private let spaceAndRegex: NSRegularExpression? // "3 16 and 17" (spoken: "chapter 3 verse 16 and 17")
     private let spaceRegex: NSRegularExpression?   // "3 16" or "3 16-18"
     private let singleRegex: NSRegularExpression?  // "25" (for single-chapter books)
 
@@ -36,6 +37,10 @@ final class VerseDetector {
         )
         self.andRegex = try? NSRegularExpression(
             pattern: #"^\s+(\d{1,3})\s+and\s+(\d{1,3})"#
+        )
+        // "3 16 and 17" → chapter 3, verse 16-17 (spoken range with "and")
+        self.spaceAndRegex = try? NSRegularExpression(
+            pattern: #"^\s+(\d{1,3})\s+(\d{1,3})\s+and\s+(\d{1,3})"#
         )
         self.spaceRegex = try? NSRegularExpression(
             pattern: #"^\s+(\d{1,3})\s+(\d{1,3})(?:\s*-\s*(\d{1,3}))?"#
@@ -93,6 +98,19 @@ final class VerseDetector {
             // Try "and" pattern: "28 and 19" (spoken: "chapter 28 and verse 19")
             if let verse = matchChapterVerse(
                 andRegex, in: afterBook, book: occurrence.book,
+                confidence: .medium, sourceText: text
+            ) {
+                let key = verse.reference.displayString
+                if !detectedKeys.contains(key) {
+                    detected.append(verse)
+                    detectedKeys.insert(key)
+                }
+                continue
+            }
+
+            // Try "space and" pattern: "3 16 and 17" (spoken verse range)
+            if let verse = matchChapterVerse(
+                spaceAndRegex, in: afterBook, book: occurrence.book,
                 confidence: .medium, sourceText: text
             ) {
                 let key = verse.reference.displayString

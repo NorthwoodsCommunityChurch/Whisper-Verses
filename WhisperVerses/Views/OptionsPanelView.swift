@@ -139,42 +139,62 @@ struct OptionsPanelView: View {
                 }
             }
 
-            // Output Folder
+            // Output Folders
             VStack(alignment: .leading, spacing: 4) {
-                Text("Output Folder")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 HStack {
-                    Text(appState.outputFolderURL.path)
+                    Text("Output Folders")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
                     Spacer()
                     Button {
-                        selectOutputFolder()
+                        addOutputFolder()
                     } label: {
-                        Image(systemName: "folder")
+                        Image(systemName: "plus.circle")
                     }
                     .buttonStyle(.borderless)
+                    .help("Add output folder")
                 }
 
-                // Warning if output folder not available (e.g., SMB share not mounted)
-                if !appState.isOutputFolderAvailable {
+                ForEach(appState.outputFolderURLs, id: \.self) { folderURL in
+                    HStack(spacing: 6) {
+                        // Availability indicator
+                        Circle()
+                            .fill(appState.outputFolderAvailability[folderURL] == true ? Color.green : Color.red)
+                            .frame(width: 8, height: 8)
+
+                        Text(folderURL.path)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+
+                        Spacer()
+
+                        // Remove button (only if more than one folder)
+                        if appState.outputFolderURLs.count > 1 {
+                            Button {
+                                appState.removeOutputFolder(folderURL)
+                            } label: {
+                                Image(systemName: "xmark.circle")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Remove folder")
+                        }
+                    }
+                }
+
+                // Warning if any folder unavailable
+                let unavailableCount = appState.outputFolderURLs.filter { appState.outputFolderAvailability[$0] != true }.count
+                if unavailableCount > 0 {
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
-                        Text("Folder not available")
+                        Text("\(unavailableCount) folder\(unavailableCount > 1 ? "s" : "") not available")
                             .font(.caption)
                         Spacer()
                         Button("Retry") {
                             appState.checkOutputFolderAvailability()
-                        }
-                        .font(.caption2)
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        Button("Change") {
-                            selectOutputFolder()
                         }
                         .font(.caption2)
                         .buttonStyle(.bordered)
@@ -193,6 +213,136 @@ struct OptionsPanelView: View {
                 Slider(value: $state.confidenceThreshold, in: 0.3...1.0, step: 0.05)
             }
 
+            // Manuscript Web Server
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Manuscript Server")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { appState.webServer.isRunning },
+                        set: { enabled in
+                            if enabled {
+                                appState.startWebServer()
+                            } else {
+                                appState.stopWebServer()
+                            }
+                        }
+                    ))
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                }
+
+                HStack(spacing: 8) {
+                    Text("Port:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("Port", value: $state.webServerPort, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+                        .frame(maxWidth: 60)
+                        .disabled(appState.webServer.isRunning)
+                        .onChange(of: appState.webServerPort) { _, _ in
+                            appState.saveSettings()
+                        }
+
+                    if appState.webServer.isRunning {
+                        Circle()
+                            .fill(.green)
+                            .frame(width: 8, height: 8)
+                        Text("\(appState.webServer.connectionCount) client\(appState.webServer.connectionCount == 1 ? "" : "s")")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    if appState.webServer.isRunning {
+                        Button("Open") {
+                            if let url = URL(string: "http://localhost:\(appState.webServerPort)") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .font(.caption)
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+
+                if appState.webServer.isRunning {
+                    Text("http://localhost:\(appState.webServerPort)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .textSelection(.enabled)
+                }
+            }
+
+            // HyperDeck (for clip marking)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("HyperDeck")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { appState.hyperDeckClient.isConnected },
+                        set: { enabled in
+                            if enabled {
+                                appState.connectHyperDeck()
+                            } else {
+                                appState.disconnectHyperDeck()
+                            }
+                        }
+                    ))
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .disabled(appState.hyperDeckHost.isEmpty)
+                }
+
+                HStack(spacing: 8) {
+                    TextField("IP Address", text: $state.hyperDeckHost)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+                        .frame(maxWidth: 120)
+                        .disabled(appState.hyperDeckClient.isConnected)
+                        .onChange(of: appState.hyperDeckHost) { _, _ in
+                            appState.saveSettings()
+                        }
+
+                    Text(":")
+                        .foregroundStyle(.secondary)
+
+                    TextField("Port", value: $state.hyperDeckPort, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+                        .frame(maxWidth: 50)
+                        .disabled(appState.hyperDeckClient.isConnected)
+                        .onChange(of: appState.hyperDeckPort) { _, _ in
+                            appState.saveSettings()
+                        }
+
+                    if appState.hyperDeckClient.isConnected {
+                        Circle()
+                            .fill(.green)
+                            .frame(width: 8, height: 8)
+                        Text(appState.hyperDeckClient.currentTimecode)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if let error = appState.hyperDeckClient.lastError {
+                    Text(error)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                }
+
+                Text("Connect to HyperDeck for timecode-marked clips")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
             Spacer()
 
             // Action Buttons
@@ -204,8 +354,8 @@ struct OptionsPanelView: View {
                 .tint(appState.isListening ? .red : .accentColor)
                 .keyboardShortcut("l", modifiers: .command)
 
-                Button("Clear Folder") {
-                    appState.clearOutputFolder()
+                Button("Clear Folders") {
+                    appState.clearOutputFolders()
                 }
                 .buttonStyle(.bordered)
                 .keyboardShortcut("k", modifiers: [.command, .shift])
@@ -269,16 +419,14 @@ struct OptionsPanelView: View {
         .background(.background)
     }
 
-    private func selectOutputFolder() {
+    private func addOutputFolder() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
-        panel.prompt = "Select Output Folder"
+        panel.prompt = "Add Output Folder"
         if panel.runModal() == .OK, let url = panel.url {
-            appState.outputFolderURL = url
-            appState.saveSettings()
-            appState.checkOutputFolderAvailability()
+            appState.addOutputFolder(url)
         }
     }
 }

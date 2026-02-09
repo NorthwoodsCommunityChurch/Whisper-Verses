@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhisperVerses - Follow Along</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="follow-page">
+    <div class="follow-container" id="container">
+        <header class="follow-header">
+            <div class="header-left">
+                <h1>WhisperVerses</h1>
+                <span class="filename" id="filename"></span>
+            </div>
+            <div class="header-right">
+                <span class="connection-status" id="connectionStatus">Connecting...</span>
+                <button class="clip-button" id="clipButton" title="Mark clip (C)">
+                    <span class="clip-icon">🎬</span>
+                    Clip
+                </button>
+            </div>
+        </header>
+
+        <main class="manuscript-view" id="manuscriptView">
+            <div class="loading">Loading manuscript...</div>
+        </main>
+
+        <div class="off-script-warning" id="offScriptWarning">
+            <span class="warning-icon">⚠️</span>
+            <span class="warning-text">Off Script</span>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

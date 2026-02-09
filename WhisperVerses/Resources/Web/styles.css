@@ -1,0 +1,348 @@
+/* WhisperVerses Web Interface Styles */
+
+:root {
+    --bg-color: #1a1a1a;
+    --surface-color: #2a2a2a;
+    --text-color: #e0e0e0;
+    --text-muted: #888;
+    --accent-color: #4a9eff;
+    --accent-hover: #6ab0ff;
+    --success-color: #4caf50;
+    --error-color: #f44336;
+    --warning-color: #ff9800;
+    --border-radius: 12px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+/* Upload Page */
+
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.upload-page header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.upload-page h1 {
+    font-size: 2.5rem;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--accent-color), #9c27b0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+
+.upload-zone {
+    background: var(--surface-color);
+    border: 2px dashed #444;
+    border-radius: var(--border-radius);
+    padding: 60px 40px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-zone:hover,
+.upload-zone.dragover {
+    border-color: var(--accent-color);
+    background: rgba(74, 158, 255, 0.05);
+}
+
+.upload-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+}
+
+.upload-zone h2 {
+    font-size: 1.5rem;
+    margin-bottom: 12px;
+}
+
+.upload-zone p {
+    color: var(--text-muted);
+}
+
+.file-types {
+    font-size: 0.9rem;
+    margin-top: 8px;
+}
+
+.upload-divider {
+    display: flex;
+    align-items: center;
+    margin: 30px 0;
+}
+
+.upload-divider::before,
+.upload-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #444;
+}
+
+.upload-divider span {
+    padding: 0 16px;
+    color: var(--text-muted);
+}
+
+.file-button {
+    display: inline-block;
+    padding: 12px 32px;
+    background: var(--accent-color);
+    color: white;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.file-button:hover {
+    background: var(--accent-hover);
+}
+
+.status {
+    margin-top: 20px;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    display: none;
+}
+
+.status.info {
+    display: block;
+    background: rgba(74, 158, 255, 0.1);
+    color: var(--accent-color);
+}
+
+.status.success {
+    display: block;
+    background: rgba(76, 175, 80, 0.1);
+    color: var(--success-color);
+}
+
+.status.error {
+    display: block;
+    background: rgba(244, 67, 54, 0.1);
+    color: var(--error-color);
+}
+
+.upload-page footer {
+    margin-top: 40px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+/* Follow Page */
+
+.follow-page {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.follow-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    transition: border-color 0.3s;
+    border: 4px solid transparent;
+}
+
+.follow-container.off-script {
+    border-color: var(--error-color);
+    animation: pulse-border 1.5s infinite;
+}
+
+@keyframes pulse-border {
+    0%, 100% { border-color: var(--error-color); }
+    50% { border-color: rgba(244, 67, 54, 0.3); }
+}
+
+.follow-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    background: var(--surface-color);
+    border-bottom: 1px solid #333;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.follow-header h1 {
+    font-size: 1.2rem;
+    color: var(--accent-color);
+}
+
+.filename {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.connection-status {
+    font-size: 0.85rem;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: #333;
+}
+
+.connection-status.connected {
+    background: rgba(76, 175, 80, 0.2);
+    color: var(--success-color);
+}
+
+.connection-status.disconnected {
+    background: rgba(244, 67, 54, 0.2);
+    color: var(--error-color);
+}
+
+.clip-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.clip-button:hover {
+    background: var(--accent-hover);
+    transform: scale(1.02);
+}
+
+.clip-button:active {
+    transform: scale(0.98);
+}
+
+.clip-icon {
+    font-size: 1.1rem;
+}
+
+/* Manuscript View */
+
+.manuscript-view {
+    flex: 1;
+    overflow-y: auto;
+    padding: 40px 24px;
+    scroll-behavior: smooth;
+}
+
+.loading {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 60px;
+}
+
+.chunk {
+    max-width: 800px;
+    margin: 0 auto 32px;
+    padding: 24px;
+    border-radius: var(--border-radius);
+    font-size: 1.25rem;
+    line-height: 1.8;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.chunk.past {
+    opacity: 0.4;
+    color: var(--text-muted);
+}
+
+.chunk.current {
+    background: rgba(74, 158, 255, 0.1);
+    border-left-color: var(--accent-color);
+    opacity: 1;
+}
+
+.chunk.future {
+    opacity: 0.7;
+}
+
+/* Off-Script Warning */
+
+.off-script-warning {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--error-color);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    transition: transform 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.off-script-warning.visible {
+    transform: translateX(-50%) translateY(0);
+}
+
+.warning-icon {
+    font-size: 1.3rem;
+}
+
+/* Scrollbar */
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
