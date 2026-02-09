@@ -53,7 +53,6 @@ final class AppState {
     var verseDetector = VerseDetector()
     var proPresenterAPI = ProPresenterAPI()
     var presentationIndexer: PresentationIndexer?
-    var updateService = UpdateService()
     var webServer = WebServer()
     @ObservationIgnored private var reconnectTask: Task<Void, Never>?
     @ObservationIgnored private var hypothesisPollTask: Task<Void, Never>?
@@ -72,7 +71,6 @@ final class AppState {
         loadSettings()
         ensureOutputFolders()
         checkOutputFolderAvailability()
-        updateService.startPeriodicChecks()
     }
 
     private func ensureOutputFolders() {

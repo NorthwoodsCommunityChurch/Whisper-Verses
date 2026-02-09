@@ -5,6 +5,7 @@
 | Name | Description | License |
 |------|-------------|---------|
 | [WhisperKit](https://github.com/argmaxinc/WhisperKit) | On-device speech recognition using Whisper models on Apple Silicon | [MIT](https://github.com/argmaxinc/WhisperKit/blob/main/LICENSE) |
+| [Sparkle](https://sparkle-project.org/) | Software update framework for macOS | [MIT](https://github.com/sparkle-project/Sparkle/blob/2.x/LICENSE) |
 
 ## Apple Frameworks
 

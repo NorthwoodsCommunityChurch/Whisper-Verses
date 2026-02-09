@@ -10,6 +10,9 @@ packages:
   WhisperKit:
     url: https://github.com/NorthwoodsCommunityChurch/WhisperKit.git
     branch: main
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.0.0
 
 targets:
   WhisperVerses:
@@ -35,6 +38,7 @@ targets:
         SWIFT_VERSION: "5.9"
     dependencies:
       - package: WhisperKit
+      - package: Sparkle
     entitlements:
       path: WhisperVerses/WhisperVerses.entitlements
 

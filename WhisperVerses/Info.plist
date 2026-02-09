@@ -22,5 +22,9 @@
 	<string>Whisper Verses needs microphone access to listen to audio and transcribe speech for Bible verse detection.</string>
 	<key>NSMainStoryboardFile</key>
 	<string></string>
+	<key>SUPublicEDKey</key>
+	<string>VIMxKZmmRokdMcHK5d3QU4+qHgBglmkVFP5aAVvxgqM=</string>
+	<key>SUFeedURL</key>
+	<string>https://northwoodscommunitychurch.github.io/app-updates/appcast.xml</string>
 </dict>
 </plist>
