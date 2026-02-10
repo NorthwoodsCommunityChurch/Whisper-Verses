@@ -13,6 +13,7 @@
 		06DCD79EA1355340DD8FF161 /* ManuscriptSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0382521EA237E3EC72037CC4 /* ManuscriptSession.swift */; };
 		0891C3CD1E9B2880A6EAC59C /* follow.html in Resources */ = {isa = PBXBuildFile; fileRef = F60DABD966680FD3A25B5D97 /* follow.html */; };
 		0C60684841E397DE731853DF /* WhisperVersesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9600C36D25C6C4CA1CE708 /* WhisperVersesApp.swift */; };
+		1AB1512B865859FC36BF60DC /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = B972EEF45B001878E787CE7D /* Sparkle */; };
 		1B25749DE5B68714A265531E /* styles.css in Resources */ = {isa = PBXBuildFile; fileRef = 6D165DC5D57614E897834347 /* styles.css */; };
 		1EE9E0E2D0613F2C2CFACA68 /* ManuscriptMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF53A3548BB549C308F9FFDB /* ManuscriptMatcher.swift */; };
 		2BFDFE59E5385AEC037648CA /* TestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD38B70E78C649E017602A9 /* TestHelpers.swift */; };
@@ -131,6 +132,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				826DC8D76BEE57B68E9BA2C5 /* WhisperKit in Frameworks */,
+				1AB1512B865859FC36BF60DC /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -342,6 +344,7 @@
 			name = WhisperVerses;
 			packageProductDependencies = (
 				F38315706B0CFAEDC3E46A77 /* WhisperKit */,
+				B972EEF45B001878E787CE7D /* Sparkle */,
 			);
 			productName = WhisperVerses;
 			productReference = 834BC5EE889EBEBF6F468C24 /* WhisperVerses.app */;
@@ -390,6 +393,7 @@
 			mainGroup = 3B69A6B320FBC2C688FAF5CE;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				3BDB94E8DAA1B99AC10CF5DF /* XCRemoteSwiftPackageReference "Sparkle" */,
 				4AB48CC7DEB0B984C495695C /* XCRemoteSwiftPackageReference "WhisperKit" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -558,14 +562,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_APP_SANDBOX = NO;
 				INFOPLIST_FILE = WhisperVerses/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.northwoods.WhisperVerses;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
@@ -616,14 +620,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_APP_SANDBOX = NO;
 				INFOPLIST_FILE = WhisperVerses/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.northwoods.WhisperVerses;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
@@ -719,6 +723,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		3BDB94E8DAA1B99AC10CF5DF /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
 		4AB48CC7DEB0B984C495695C /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/NorthwoodsCommunityChurch/WhisperKit.git";
@@ -730,6 +742,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		B972EEF45B001878E787CE7D /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3BDB94E8DAA1B99AC10CF5DF /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
 		F38315706B0CFAEDC3E46A77 /* WhisperKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4AB48CC7DEB0B984C495695C /* XCRemoteSwiftPackageReference "WhisperKit" */;
