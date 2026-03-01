@@ -52,36 +52,41 @@ final class ProPresenterAPI {
         let presentation: PresentationDetail
     }
 
+    // Only decodes 'groups' — ignores 'id' and any other fields Pro7 may send.
     struct PresentationDetail: Codable {
-        let id: PresentationId
         let groups: [SlideGroup]
-    }
 
-    struct PresentationId: Codable {
-        let uuid: String
-        let name: String
-        let index: Int
-    }
-
-    struct SlideGroup: Codable {
-        let name: String
-        let slides: [Slide]
-    }
-
-    struct Slide: Codable {
-        let enabled: Bool
-        let label: String
-
-        // 'text' is intentionally omitted — Pro7 may return it as a complex object
-        // (rich text), which would fail String decoding. We only need 'label'.
-        enum CodingKeys: String, CodingKey {
-            case enabled, label
-        }
+        enum CodingKeys: String, CodingKey { case groups }
 
         init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            enabled = try container.decode(Bool.self, forKey: .enabled)
-            label = try container.decodeIfPresent(String.self, forKey: .label) ?? ""
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            groups = (try? c.decodeIfPresent([SlideGroup].self, forKey: .groups)) ?? []
+        }
+    }
+
+    // Only decodes 'slides' — ignores 'name' and any other group fields.
+    struct SlideGroup: Codable {
+        let slides: [Slide]
+
+        enum CodingKeys: String, CodingKey { case slides }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            slides = (try? c.decodeIfPresent([Slide].self, forKey: .slides)) ?? []
+        }
+    }
+
+    // Only decodes 'label' — ignores 'enabled', 'text', and all other slide fields.
+    // Pro7 may return 'text' as a rich-text object (not a String), which would
+    // crash decoding. We only need the label for verse-to-slide mapping.
+    struct Slide: Codable {
+        let label: String
+
+        enum CodingKeys: String, CodingKey { case label }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            label = (try? c.decodeIfPresent(String.self, forKey: .label)) ?? ""
         }
     }
 

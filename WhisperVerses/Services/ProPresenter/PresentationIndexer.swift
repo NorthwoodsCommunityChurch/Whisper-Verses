@@ -125,39 +125,50 @@ final class PresentationIndexer {
             await MainActor.run { self.currentlyLoadingBook = bookCode }
             defer { Task { @MainActor in self.currentlyLoadingBook = nil } }
 
-            do {
-                logger.info("PresentationIndexer: Loading slides for \(bookCode) (uuid: \(uuid.prefix(8))...)...")
-                let slides = try await api.getPresentationSlides(presentationUUID: uuid)
-                let labels = slides.map { $0.label }
-
-                // Log first few labels for diagnostic purposes
-                let sampleLabels = labels.prefix(5).map { "'\($0)'" }.joined(separator: ", ")
-                logger.info("PresentationIndexer: \(bookCode) first labels: [\(sampleLabels)]")
-                if let lastLabel = labels.last {
-                    logger.info("PresentationIndexer: \(bookCode) last label: '\(lastLabel)'")
+            var slides: [ProPresenterAPI.Slide]? = nil
+            var lastError: Error? = nil
+            for attempt in 1...3 {
+                do {
+                    logger.info("PresentationIndexer: Loading slides for \(bookCode) (attempt \(attempt)/3)...")
+                    slides = try await api.getPresentationSlides(presentationUUID: uuid)
+                    break
+                } catch {
+                    lastError = error
+                    logger.warning("PresentationIndexer: Attempt \(attempt) failed for \(bookCode): \(error.localizedDescription)")
+                    if attempt < 3 {
+                        try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
+                    }
                 }
+            }
 
-                // Log empty labels that could indicate parsing issues
-                let emptyCount = labels.filter { $0.trimmingCharacters(in: .whitespaces).isEmpty }.count
-                if emptyCount > 0 {
-                    logger.warning("PresentationIndexer: \(bookCode) has \(emptyCount) empty labels out of \(labels.count)")
-                }
-
-                await MainActor.run {
-                    self.map.registerSlides(
-                        bookCode: bookCode,
-                        presentationUUID: uuid,
-                        slideLabels: labels
-                    )
-                    self.indexedVerseCount = self.map.totalVerses
-                }
-
-                logger.info("PresentationIndexer: Loaded \(slides.count) slides for \(bookCode)")
-            } catch {
-                logger.error("PresentationIndexer: Failed to load slides for \(bookCode): \(error.localizedDescription)")
-                logger.error("PresentationIndexer: Error type: \(type(of: error)), details: \(error)")
+            guard let loadedSlides = slides else {
+                logger.error("PresentationIndexer: All 3 attempts failed for \(bookCode): \(lastError?.localizedDescription ?? "unknown")")
                 return nil
             }
+
+            let labels = loadedSlides.map { $0.label }
+
+            let sampleLabels = labels.prefix(5).map { "'\($0)'" }.joined(separator: ", ")
+            logger.info("PresentationIndexer: \(bookCode) first labels: [\(sampleLabels)]")
+            if let lastLabel = labels.last {
+                logger.info("PresentationIndexer: \(bookCode) last label: '\(lastLabel)'")
+            }
+
+            let emptyCount = labels.filter { $0.trimmingCharacters(in: .whitespaces).isEmpty }.count
+            if emptyCount > 0 {
+                logger.warning("PresentationIndexer: \(bookCode) has \(emptyCount) empty labels out of \(labels.count)")
+            }
+
+            await MainActor.run {
+                self.map.registerSlides(
+                    bookCode: bookCode,
+                    presentationUUID: uuid,
+                    slideLabels: labels
+                )
+                self.indexedVerseCount = self.map.totalVerses
+            }
+
+            logger.info("PresentationIndexer: Loaded \(loadedSlides.count) slides for \(bookCode)")
         }
 
         // Now look up the verse
