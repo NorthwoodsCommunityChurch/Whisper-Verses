@@ -7,9 +7,55 @@ struct OptionsPanelView: View {
     var body: some View {
         @Bindable var state = appState
 
+        ScrollView {
         VStack(alignment: .leading, spacing: 12) {
             Text("Options")
                 .font(.headline)
+
+            // Model status (shown at top so it's always visible)
+            if appState.isModelLoading {
+                VStack(alignment: .leading, spacing: 4) {
+                    if appState.modelDownloadProgress > 0 && appState.modelDownloadProgress < 1 {
+                        ProgressView(value: appState.modelDownloadProgress) {
+                            Text("Downloading model (\(Int(appState.modelDownloadProgress * 100))%)...")
+                                .font(.caption)
+                        }
+                    } else {
+                        HStack(spacing: 4) {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                            Text("Loading Whisper model...")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            } else if !appState.isModelLoaded && appState.transcriptionService != nil {
+                Text("Model failed to load")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            // Error banner (also at top so it's always visible)
+            if let error = appState.errorMessage {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.yellow)
+                    Text(error)
+                        .font(.caption)
+                        .lineLimit(3)
+                    Spacer()
+                    Button {
+                        appState.dismissError()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(8)
+                .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
+            }
 
             // Audio Device
             VStack(alignment: .leading, spacing: 4) {
@@ -378,52 +424,10 @@ struct OptionsPanelView: View {
                     .foregroundStyle(.tertiary)
             }
 
-            // Model status
-            if appState.isModelLoading {
-                VStack(alignment: .leading, spacing: 4) {
-                    if appState.modelDownloadProgress > 0 && appState.modelDownloadProgress < 1 {
-                        ProgressView(value: appState.modelDownloadProgress) {
-                            Text("Downloading model (\(Int(appState.modelDownloadProgress * 100))%)...")
-                                .font(.caption)
-                        }
-                    } else {
-                        HStack(spacing: 4) {
-                            ProgressView()
-                                .scaleEffect(0.5)
-                            Text("Loading Whisper model...")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            } else if !appState.isModelLoaded && appState.transcriptionService != nil {
-                Text("Model failed to load")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
-
-            // Error banner
-            if let error = appState.errorMessage {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.yellow)
-                    Text(error)
-                        .font(.caption)
-                        .lineLimit(3)
-                    Spacer()
-                    Button {
-                        appState.dismissError()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(8)
-                .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
-            }
         }
         .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        } // ScrollView
         .background(.background)
     }
 
