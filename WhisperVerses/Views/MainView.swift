@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainView: View {
     @Environment(AppState.self) private var appState
+    @State private var showingVersePicker = false
 
     var body: some View {
         HSplitView {
@@ -19,8 +20,16 @@ struct MainView: View {
             }
             .frame(minWidth: 350)
         }
+        .sheet(isPresented: $showingVersePicker) {
+            ManualVersePicker()
+                .environment(appState)
+        }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                Button("Pick Verse") {
+                    showingVersePicker = true
+                }
+
                 Button(appState.isListening ? "Stop" : "Start Listening") {
                     Task { await appState.toggleListening() }
                 }

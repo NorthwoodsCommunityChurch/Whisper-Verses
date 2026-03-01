@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		03EE04FD1D5BB4096790756C /* PresentationIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F44390D009A1194EF88E3C3 /* PresentationIndexer.swift */; };
+		0406460F76BFEE104032F3B3 /* ManualVersePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F3E11FD6A5FBF5FCE21CF17 /* ManualVersePicker.swift */; };
 		056E457AC816E11CECFF3B09 /* ClipManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B6146A4CCA2D15EED34E592 /* ClipManager.swift */; };
 		05ABA0972D8E00D9287544BD /* BibleReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4470C0AFFE7132C1176B4F59 /* BibleReference.swift */; };
 		06DCD79EA1355340DD8FF161 /* ManuscriptSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0382521EA237E3EC72037CC4 /* ManuscriptSession.swift */; };
@@ -78,6 +79,7 @@
 		0382521EA237E3EC72037CC4 /* ManuscriptSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManuscriptSession.swift; sourceTree = "<group>"; };
 		0A885DA0AA42681C3B57B3AC /* WebSocketHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketHandler.swift; sourceTree = "<group>"; };
 		0B435DB670F29365AEA98E9C /* ThreadSafeAudioProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafeAudioProcessor.swift; sourceTree = "<group>"; };
+		0F3E11FD6A5FBF5FCE21CF17 /* ManualVersePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualVersePicker.swift; sourceTree = "<group>"; };
 		1CB058BBF5EACF263D05EED0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		1D9AC558EB9B48CE915D3764 /* HyperDeckClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyperDeckClient.swift; sourceTree = "<group>"; };
 		243BA17C0A877097CBD75FCA /* TranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionService.swift; sourceTree = "<group>"; };
@@ -266,6 +268,7 @@
 				B9B1A05EA669A3F4E41C49CB /* CapturePreviewPanelView.swift */,
 				B33E06D5ADE85873CF6EB957 /* ConnectionStatusView.swift */,
 				90E03B465F08C05E8DB4493B /* MainView.swift */,
+				0F3E11FD6A5FBF5FCE21CF17 /* ManualVersePicker.swift */,
 				E07C7FAD319AA3EA0AD7EB6E /* OnboardingView.swift */,
 				D71E15E3A22C55590E413E9C /* OptionsPanelView.swift */,
 				3DE24EF17353CC667D0DB9E6 /* TranscriptPanelView.swift */,
@@ -455,6 +458,7 @@
 				9F7CB37D1DCC7A3419DEDBC1 /* HyperDeckClient.swift in Sources */,
 				A2D9C3F9A551AF80260DA333 /* ImageConverter.swift in Sources */,
 				9ED07C9F543E92B2F292C5DB /* MainView.swift in Sources */,
+				0406460F76BFEE104032F3B3 /* ManualVersePicker.swift in Sources */,
 				1EE9E0E2D0613F2C2CFACA68 /* ManuscriptMatcher.swift in Sources */,
 				06DCD79EA1355340DD8FF161 /* ManuscriptSession.swift in Sources */,
 				DAA33C8A009699BE41B650C5 /* NumberWordConverter.swift in Sources */,
@@ -574,14 +578,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_APP_SANDBOX = NO;
 				INFOPLIST_FILE = WhisperVerses/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.3;
+				MARKETING_VERSION = 1.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.northwoods.WhisperVerses;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
@@ -632,14 +636,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_APP_SANDBOX = NO;
 				INFOPLIST_FILE = WhisperVerses/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.3;
+				MARKETING_VERSION = 1.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.northwoods.WhisperVerses;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
