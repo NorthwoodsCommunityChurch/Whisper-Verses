@@ -71,17 +71,17 @@ final class ProPresenterAPI {
     struct Slide: Codable {
         let enabled: Bool
         let label: String
-        let text: String?
 
+        // 'text' is intentionally omitted — Pro7 may return it as a complex object
+        // (rich text), which would fail String decoding. We only need 'label'.
         enum CodingKeys: String, CodingKey {
-            case enabled, label, text
+            case enabled, label
         }
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             enabled = try container.decode(Bool.self, forKey: .enabled)
             label = try container.decodeIfPresent(String.self, forKey: .label) ?? ""
-            text = try container.decodeIfPresent(String.self, forKey: .text)
         }
     }
 

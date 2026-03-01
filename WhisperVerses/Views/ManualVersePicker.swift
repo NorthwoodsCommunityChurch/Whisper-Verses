@@ -34,6 +34,7 @@ private struct GridButtonStyle: ButtonStyle {
 
 struct ManualVersePicker: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
     @State private var path = NavigationPath()
 
     private let bookIndex = BibleBookIndex.load()
@@ -46,7 +47,7 @@ struct ManualVersePicker: View {
                     case .chapters(let book):
                         ChaptersView(book: book, path: $path)
                     case .verses(let book, let chapter):
-                        VersesView(book: book, chapter: chapter)
+                        VersesView(book: book, chapter: chapter, dismissSheet: { dismiss() })
                     }
                 }
         }
@@ -111,10 +112,10 @@ private struct ChaptersView: View {
 
 private struct VersesView: View {
     @Environment(AppState.self) private var appState
-    @Environment(\.dismiss) private var dismiss
 
     let book: BibleBook
     let chapter: Int
+    let dismissSheet: () -> Void
 
     @State private var startVerse: Int? = nil
     @State private var endVerse: Int? = nil
@@ -217,6 +218,6 @@ private struct VersesView: View {
         Task {
             await appState.captureVerseSlide(detectedVerse)
         }
-        dismiss()
+        dismissSheet()
     }
 }
