@@ -76,7 +76,7 @@ struct OptionsPanelView: View {
                         .frame(maxWidth: 120)
                     Text(":")
                         .foregroundStyle(.secondary)
-                    TextField("Port", value: $state.proPresenterPort, format: .number)
+                    TextField("Port", value: $state.proPresenterPort, format: .number.grouping(.never))
                         .textFieldStyle(.roundedBorder)
                         .font(.caption)
                         .frame(maxWidth: 60)
@@ -108,7 +108,7 @@ struct OptionsPanelView: View {
                         HStack(spacing: 4) {
                             ProgressView()
                                 .scaleEffect(0.5)
-                            Text("Indexing library...")
+                            Text("Scanning library...")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -117,22 +117,42 @@ struct OptionsPanelView: View {
                             .font(.caption2)
                             .foregroundStyle(.red)
                     } else if indexer.indexedBookCount > 0 {
-                        HStack(spacing: 8) {
-                            Text("Indexed \(indexer.indexedBookCount)/66 books")
-                                .font(.caption2)
-                                .foregroundStyle(.green)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 8) {
+                                Text("\(indexer.indexedBookCount)/66 books found")
+                                    .font(.caption2)
+                                    .foregroundStyle(.green)
 
-                            if !indexer.missingBooks.isEmpty {
-                                Menu {
-                                    ForEach(indexer.missingBooks) { book in
-                                        Text(book.name)
+                                if !indexer.missingBooks.isEmpty {
+                                    Menu {
+                                        ForEach(indexer.missingBooks) { book in
+                                            Text(book.name)
+                                        }
+                                    } label: {
+                                        Label("\(indexer.missingBooks.count) missing", systemImage: "exclamationmark.triangle")
+                                            .font(.caption2)
                                     }
-                                } label: {
-                                    Label("\(indexer.missingBooks.count) missing", systemImage: "exclamationmark.triangle")
-                                        .font(.caption2)
+                                    .menuStyle(.borderlessButton)
+                                    .fixedSize()
                                 }
-                                .menuStyle(.borderlessButton)
-                                .fixedSize()
+                            }
+                            // Show loading indicator when a book's slides are being fetched
+                            if let loadingBook = indexer.currentlyLoadingBook {
+                                HStack(spacing: 4) {
+                                    ProgressView()
+                                        .scaleEffect(0.4)
+                                    Text("Loading \(loadingBook)...")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } else if indexer.indexedVerseCount > 0 {
+                                Text("\(indexer.map.loadedCount) books loaded (\(indexer.indexedVerseCount) slides)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("Slides loaded on-demand")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
                             }
                         }
                     }
@@ -238,7 +258,7 @@ struct OptionsPanelView: View {
                     Text("Port:")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    TextField("Port", value: $state.webServerPort, format: .number)
+                    TextField("Port", value: $state.webServerPort, format: .number.grouping(.never))
                         .textFieldStyle(.roundedBorder)
                         .font(.caption)
                         .frame(maxWidth: 60)
@@ -271,10 +291,25 @@ struct OptionsPanelView: View {
                 }
 
                 if appState.webServer.isRunning {
-                    Text("http://localhost:\(appState.webServerPort)")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .textSelection(.enabled)
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(getNetworkURLs(port: appState.webServerPort), id: \.self) { url in
+                            Button {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(url, forType: .string)
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text(url)
+                                        .font(.caption2.monospaced())
+                                    Image(systemName: "doc.on.doc")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.tertiary)
+                            .help("Click to copy")
+                        }
+                    }
                 }
             }
 
@@ -313,7 +348,7 @@ struct OptionsPanelView: View {
                     Text(":")
                         .foregroundStyle(.secondary)
 
-                    TextField("Port", value: $state.hyperDeckPort, format: .number)
+                    TextField("Port", value: $state.hyperDeckPort, format: .number.grouping(.never))
                         .textFieldStyle(.roundedBorder)
                         .font(.caption)
                         .frame(maxWidth: 50)
@@ -341,30 +376,6 @@ struct OptionsPanelView: View {
                 Text("Connect to HyperDeck for timecode-marked clips")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
-            }
-
-            Spacer()
-
-            // Action Buttons
-            HStack {
-                Button(appState.isListening ? "Stop" : "Start Listening") {
-                    Task { await appState.toggleListening() }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(appState.isListening ? .red : .accentColor)
-                .keyboardShortcut("l", modifiers: .command)
-
-                Button("Clear Folders") {
-                    appState.clearOutputFolders()
-                }
-                .buttonStyle(.bordered)
-                .keyboardShortcut("k", modifiers: [.command, .shift])
-
-                Button("Reset Whisper") {
-                    appState.resetWhisper()
-                }
-                .buttonStyle(.bordered)
-                .keyboardShortcut("r", modifiers: [.command, .shift])
             }
 
             // Model status
@@ -425,5 +436,52 @@ struct OptionsPanelView: View {
         if panel.runModal() == .OK, let url = panel.url {
             appState.addOutputFolder(url)
         }
+    }
+
+    /// Get all network interface URLs for the web server
+    private func getNetworkURLs(port: UInt16) -> [String] {
+        var urls: [String] = []
+
+        // Always include localhost first
+        urls.append("http://localhost:\(port)")
+
+        // Get all network interface addresses
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else {
+            return urls
+        }
+        defer { freeifaddrs(ifaddr) }
+
+        var ptr = firstAddr
+        while true {
+            let interface = ptr.pointee
+            let family = interface.ifa_addr.pointee.sa_family
+
+            // Only IPv4 addresses (AF_INET)
+            if family == UInt8(AF_INET) {
+                let name = String(cString: interface.ifa_name)
+                // Skip loopback (lo0) and link-local (169.254.x.x)
+                if name != "lo0" {
+                    var addr = interface.ifa_addr.pointee
+                    var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                    if getnameinfo(
+                        &addr, socklen_t(interface.ifa_addr.pointee.sa_len),
+                        &hostname, socklen_t(hostname.count),
+                        nil, 0, NI_NUMERICHOST
+                    ) == 0 {
+                        let ip = String(cString: hostname)
+                        // Skip link-local addresses
+                        if !ip.hasPrefix("169.254.") {
+                            urls.append("http://\(ip):\(port)")
+                        }
+                    }
+                }
+            }
+
+            guard let next = interface.ifa_next else { break }
+            ptr = next
+        }
+
+        return urls
     }
 }

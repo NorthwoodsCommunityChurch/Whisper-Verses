@@ -12,7 +12,7 @@ final class ProPresenterAPI {
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 10
-        config.timeoutIntervalForResource = 30
+        config.timeoutIntervalForResource = 60
         return URLSession(configuration: config)
     }()
 
@@ -46,6 +46,45 @@ final class ProPresenterAPI {
         let index: Int
     }
 
+    // MARK: - Presentation Details
+
+    struct PresentationResponse: Codable {
+        let presentation: PresentationDetail
+    }
+
+    struct PresentationDetail: Codable {
+        let id: PresentationId
+        let groups: [SlideGroup]
+    }
+
+    struct PresentationId: Codable {
+        let uuid: String
+        let name: String
+        let index: Int
+    }
+
+    struct SlideGroup: Codable {
+        let name: String
+        let slides: [Slide]
+    }
+
+    struct Slide: Codable {
+        let enabled: Bool
+        let label: String
+        let text: String?
+
+        enum CodingKeys: String, CodingKey {
+            case enabled, label, text
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            enabled = try container.decode(Bool.self, forKey: .enabled)
+            label = try container.decodeIfPresent(String.self, forKey: .label) ?? ""
+            text = try container.decodeIfPresent(String.self, forKey: .text)
+        }
+    }
+
     // MARK: - Connection
 
     /// Check if ProPresenter API is reachable.
@@ -74,6 +113,18 @@ final class ProPresenterAPI {
         let data = try await get("/v1/library/\(encoded)")
         let response = try JSONDecoder().decode(LibraryResponse.self, from: data)
         return response.items
+    }
+
+    // MARK: - Presentation Details
+
+    /// Get presentation details including all slide labels.
+    /// Used to build accurate verse-to-slide mappings.
+    func getPresentationSlides(presentationUUID: String) async throws -> [Slide] {
+        let encoded = presentationUUID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? presentationUUID
+        let data = try await get("/v1/presentation/\(encoded)")
+        let response = try JSONDecoder().decode(PresentationResponse.self, from: data)
+        // Flatten all slides from all groups into a single array
+        return response.presentation.groups.flatMap { $0.slides }
     }
 
     // MARK: - Slide Thumbnails

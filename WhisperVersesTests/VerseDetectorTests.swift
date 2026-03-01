@@ -35,6 +35,47 @@ final class VerseDetectorTests: XCTestCase {
         XCTAssertEqual(verses.first?.reference.verseEnd, 30)
     }
 
+    // MARK: - Period Format (common in formatted sermon transcripts)
+
+    func testPeriodFormat() {
+        // "John 4.35" — very common in real sermon transcripts
+        let verses = detector.detect(in: "John 4.35")
+        XCTAssertEqual(verses.count, 1)
+        XCTAssertEqual(verses.first?.reference.bookCode, "JHN")
+        XCTAssertEqual(verses.first?.reference.chapter, 4)
+        XCTAssertEqual(verses.first?.reference.verseStart, 35)
+        XCTAssertEqual(verses.first?.confidence, .high)
+    }
+
+    func testPeriodFormatWithRange() {
+        // "Ephesians 1.15-16" — range with period separator
+        let verses = detector.detect(in: "turn to Ephesians 1.15-16")
+        XCTAssertEqual(verses.count, 1)
+        XCTAssertEqual(verses.first?.reference.bookCode, "EPH")
+        XCTAssertEqual(verses.first?.reference.chapter, 1)
+        XCTAssertEqual(verses.first?.reference.verseStart, 15)
+        XCTAssertEqual(verses.first?.reference.verseEnd, 16)
+    }
+
+    func testPeriodFormatNumberedBook() {
+        // "2 Timothy 1.6" — numbered book + period separator
+        detector.clearHistory()
+        let verses = detector.detect(in: "2 Timothy 1.6")
+        XCTAssertEqual(verses.count, 1)
+        XCTAssertEqual(verses.first?.reference.bookCode, "2TI")
+        XCTAssertEqual(verses.first?.reference.chapter, 1)
+        XCTAssertEqual(verses.first?.reference.verseStart, 6)
+    }
+
+    func testPeriodFormatPsalms() {
+        // "Psalm 27.3"
+        let verses = detector.detect(in: "Psalm 27.3")
+        XCTAssertEqual(verses.count, 1)
+        XCTAssertEqual(verses.first?.reference.bookCode, "PSA")
+        XCTAssertEqual(verses.first?.reference.chapter, 27)
+        XCTAssertEqual(verses.first?.reference.verseStart, 3)
+    }
+
     // MARK: - Comma Format (common transcription artifact)
 
     func testCommaFormat() {

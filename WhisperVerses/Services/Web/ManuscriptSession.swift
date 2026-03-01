@@ -4,95 +4,115 @@ import OSLog
 private let logger = Logger(subsystem: "com.northwoods.WhisperVerses", category: "ManuscriptSession")
 
 final class ManuscriptSession {
-    private(set) var chunks: [ManuscriptChunk] = []
+    private(set) var chunks: [String] = []
     private(set) var currentPosition: Int = 0
     private(set) var isOffScript: Bool = false
     private(set) var confidence: Double = 0.0
 
-    private var lastMatchTime: Date = Date()
-    private var manuscriptText: String = ""
+    private let lock = NSLock()
+    private let matcher: EmbeddingMatcher
 
-    private let offScriptThreshold: TimeInterval = 12.0
-    private let audioThreshold: Float = 0.02
+    // Throttle embedding inference to every 2 seconds
+    private var lastEmbeddingTime: Date = .distantPast
+    private let embeddingInterval: TimeInterval = 2.0
+
+    init(matcher: EmbeddingMatcher) {
+        self.matcher = matcher
+    }
 
     func loadManuscript(_ text: String) {
-        manuscriptText = text
-        chunks = ManuscriptMatcher.parseIntoChunks(text)
+        lock.lock()
+        defer { lock.unlock() }
+
+        chunks = Self.parseIntoChunks(text)
         currentPosition = 0
         isOffScript = false
         confidence = 0.0
-        lastMatchTime = Date()
 
         logger.info("Loaded manuscript with \(self.chunks.count) chunks")
     }
 
+    /// Build embedding index for loaded chunks (async, may take a few seconds)
+    func buildEmbeddingIndex() async {
+        let chunkTexts: [String]
+        lock.lock()
+        chunkTexts = chunks
+        lock.unlock()
+
+        await matcher.buildIndex(from: chunkTexts)
+    }
+
     func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+
         chunks.removeAll()
-        manuscriptText = ""
         currentPosition = 0
         isOffScript = false
         confidence = 0.0
+        matcher.reset()
     }
 
+    /// Called every 150ms from broadcast loop — returns cached state, no heavy computation
     func processTranscript(confirmedText: String, hypothesis: String, audioLevel: Float) -> SessionUpdate {
+        lock.lock()
+        defer { lock.unlock() }
+
         guard !chunks.isEmpty else {
             return SessionUpdate(
                 currentPosition: 0,
                 confidence: 0,
                 isOffScript: false,
-                chunks: []
+                confirmedTranscript: "",
+                chunks: [],
+                matchedWords: [:]
             )
         }
 
-        let fullTranscript = confirmedText + " " + hypothesis
-        let isSpeaking = audioLevel > audioThreshold
+        // Read latest position from matcher
+        currentPosition = matcher.currentChunkIndex
+        confidence = matcher.matchConfidence
+        isOffScript = matcher.isOffScript
 
-        // Find best matching chunk (only search forward)
-        let searchRange = currentPosition..<min(currentPosition + 4, chunks.count)
-        var bestMatch = (index: currentPosition, score: 0.0)
+        return buildSessionUpdate(confirmedText: confirmedText)
+    }
 
-        for i in searchRange {
-            let score = ManuscriptMatcher.matchScore(
-                transcript: fullTranscript,
-                chunk: chunks[i].normalizedText
-            )
+    /// Run embedding-based matching (called async from background Task, throttled)
+    func updateEmbeddingMatch(transcript: String) async {
+        let now = Date()
+        guard now.timeIntervalSince(lastEmbeddingTime) >= embeddingInterval else { return }
+        lastEmbeddingTime = now
 
-            if score > bestMatch.score {
-                bestMatch = (i, score)
-            }
-        }
+        guard matcher.isModelLoaded, matcher.isIndexBuilt else { return }
+        guard !transcript.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
-        // Update position if we found a good match
-        if bestMatch.score > 0.4 {
-            if bestMatch.index != currentPosition || bestMatch.score > confidence {
-                currentPosition = bestMatch.index
-                confidence = bestMatch.score
-                lastMatchTime = Date()
-                isOffScript = false
+        await matcher.findPosition(transcript: transcript)
+    }
 
-                logger.debug("Position updated to \(self.currentPosition) with confidence \(String(format: "%.2f", self.confidence))")
-            }
-        }
+    var currentSnippet: String {
+        lock.lock()
+        defer { lock.unlock() }
 
-        // Check for off-script state
-        let timeSinceMatch = Date().timeIntervalSince(lastMatchTime)
-        if isSpeaking && timeSinceMatch > offScriptThreshold {
-            isOffScript = true
-        } else if !isSpeaking || timeSinceMatch < offScriptThreshold / 2 {
-            isOffScript = false
-        }
+        guard currentPosition < chunks.count else { return "" }
+        return chunks[currentPosition]
+    }
 
-        return SessionUpdate(
+    // MARK: - Private
+
+    private func buildSessionUpdate(confirmedText: String) -> SessionUpdate {
+        SessionUpdate(
             currentPosition: currentPosition,
             confidence: confidence,
             isOffScript: isOffScript,
+            confirmedTranscript: confirmedText,
             chunks: chunks.enumerated().map { index, chunk in
                 ChunkState(
                     id: index,
-                    text: chunk.text,
+                    text: chunk,
                     status: statusForChunk(at: index)
                 )
-            }
+            },
+            matchedWords: [:]  // Embedding matching operates at chunk level
         )
     }
 
@@ -106,18 +126,58 @@ final class ManuscriptSession {
         }
     }
 
-    var currentSnippet: String {
-        guard currentPosition < chunks.count else { return "" }
-        return chunks[currentPosition].text
+    // MARK: - Chunk Parsing
+
+    private static let targetChunkSize = 5
+
+    static func parseIntoChunks(_ text: String) -> [String] {
+        let sentences = splitIntoSentences(text)
+        guard !sentences.isEmpty else { return [] }
+
+        var chunks: [String] = []
+        var currentSentences: [String] = []
+
+        for sentence in sentences {
+            currentSentences.append(sentence)
+            if currentSentences.count >= targetChunkSize {
+                chunks.append(currentSentences.joined(separator: " "))
+                currentSentences.removeAll()
+            }
+        }
+
+        if !currentSentences.isEmpty {
+            chunks.append(currentSentences.joined(separator: " "))
+        }
+
+        return chunks
+    }
+
+    private static func splitIntoSentences(_ text: String) -> [String] {
+        var sentences: [String] = []
+        var current = ""
+        let terminators: Set<Character> = [".", "!", "?"]
+
+        for char in text {
+            current.append(char)
+            if terminators.contains(char) {
+                let trimmed = current.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    sentences.append(trimmed)
+                }
+                current = ""
+            }
+        }
+
+        let trimmed = current.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            sentences.append(trimmed)
+        }
+
+        return sentences
     }
 }
 
 // MARK: - Data Types
-
-struct ManuscriptChunk {
-    let text: String
-    let normalizedText: String
-}
 
 enum ChunkStatus: String, Codable {
     case past
@@ -135,12 +195,13 @@ struct SessionUpdate: Codable {
     let currentPosition: Int
     let confidence: Double
     let isOffScript: Bool
+    let confirmedTranscript: String
     let chunks: [ChunkState]
+    let matchedWords: [String: [String]]
 
     func toJSON() -> String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
-
         guard let data = try? encoder.encode(self) else { return nil }
         return String(data: data, encoding: .utf8)
     }

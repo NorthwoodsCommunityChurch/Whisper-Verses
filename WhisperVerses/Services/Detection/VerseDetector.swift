@@ -13,16 +13,31 @@ final class VerseDetector {
     private var recentDetections: [String: Date] = [:]
     private let deduplicationWindow: TimeInterval = 30
 
+    // Chapter context memory: remembers book+chapter when pastor says "2 Timothy chapter 4"
+    private struct ChapterContext {
+        let book: BibleBook
+        let chapter: Int
+        let setAt: Date
+    }
+    private var chapterContext: ChapterContext?
+    private let contextTimeout: TimeInterval = 300 // 5 minutes
+
     // Regex patterns applied to text AFTER a book name position
     private let colonRegex: NSRegularExpression?   // "3:16" or "3:16-18"
+    private let periodRegex: NSRegularExpression?  // "3.16" or "3.16-18" (common in typed transcripts)
     private let commaRegex: NSRegularExpression?   // "3, 16" or "3,16" (common transcription of spoken refs)
-    private let andRegex: NSRegularExpression?     // "3 and 16" (spoken: "chapter 3 and verse 16")
+    private let andRegex: NSRegularExpression?     // "3 and 16" or "1 and 20-21" (spoken: "chapter 1 and verses 20 to 21")
     private let spaceAndRegex: NSRegularExpression? // "3 16 and 17" (spoken: "chapter 3 verse 16 and 17")
     private let spaceRegex: NSRegularExpression?   // "3 16" or "3 16-18"
     private let singleRegex: NSRegularExpression?  // "25" (for single-chapter books)
 
     // Fallback regex for fuzzy matching: captures a word before chapter:verse
     private let fuzzyColonRegex: NSRegularExpression?
+
+    // Standalone verse patterns (applied to text when chapter context is active)
+    private let standaloneVerseRangeRegex: NSRegularExpression? // "verse(s) X through/to Y"
+    private let standaloneVerseAndRegex: NSRegularExpression?   // "verse(s) X and Y"
+    private let standaloneVerseRegex: NSRegularExpression?      // "verse(s) X"
 
     init(bookIndex: BibleBookIndex = .load()) {
         self.bookIndex = bookIndex
@@ -32,11 +47,14 @@ final class VerseDetector {
         self.colonRegex = try? NSRegularExpression(
             pattern: #"^\s*(\d{1,3})\s*:\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?"#
         )
+        self.periodRegex = try? NSRegularExpression(
+            pattern: #"^\s*(\d{1,3})\.(\d{1,3})(?:\s*-\s*(\d{1,3}))?"#
+        )
         self.commaRegex = try? NSRegularExpression(
             pattern: #"^\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?"#
         )
         self.andRegex = try? NSRegularExpression(
-            pattern: #"^\s+(\d{1,3})\s+and\s+(\d{1,3})"#
+            pattern: #"^\s+(\d{1,3})\s+and\s+(\d{1,3})(?:\s*-\s*(\d{1,3}))?"#
         )
         // "3 16 and 17" → chapter 3, verse 16-17 (spoken range with "and")
         self.spaceAndRegex = try? NSRegularExpression(
@@ -51,6 +69,17 @@ final class VerseDetector {
         // Fallback: any capitalized word(s) followed by chapter:verse (for fuzzy book name matching)
         self.fuzzyColonRegex = try? NSRegularExpression(
             pattern: #"(?i)\b([1-3]?\s*[A-Z][a-z]{2,}(?:\s+[a-z]+)?)\s+(\d{1,3})\s*:\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?"#
+        )
+
+        // Standalone verse patterns (for use with chapter context)
+        self.standaloneVerseRangeRegex = try? NSRegularExpression(
+            pattern: #"(?i)\bverses?\s+(\d{1,3})\s*(?:through|to|thru|-)\s*(\d{1,3})"#
+        )
+        self.standaloneVerseAndRegex = try? NSRegularExpression(
+            pattern: #"(?i)\bverses?\s+(\d{1,3})\s+and\s+(\d{1,3})"#
+        )
+        self.standaloneVerseRegex = try? NSRegularExpression(
+            pattern: #"(?i)\bverses?\s+(\d{1,3})\b(?!\s*(?:through|to|thru|-)\s*\d)(?!\s+and\s+\d)"#
         )
     }
 
@@ -72,6 +101,19 @@ final class VerseDetector {
             // Try colon pattern: "3:16" or "3:16-18" (highest confidence)
             if let verse = matchChapterVerse(
                 colonRegex, in: afterBook, book: occurrence.book,
+                confidence: .high, sourceText: text
+            ) {
+                let key = verse.reference.displayString
+                if !detectedKeys.contains(key) {
+                    detected.append(verse)
+                    detectedKeys.insert(key)
+                }
+                continue
+            }
+
+            // Try period pattern: "3.16" or "3.16-18" (common in typed/formatted transcripts)
+            if let verse = matchChapterVerse(
+                periodRegex, in: afterBook, book: occurrence.book,
                 confidence: .high, sourceText: text
             ) {
                 let key = verse.reference.displayString
@@ -145,6 +187,13 @@ final class VerseDetector {
                         detectedKeys.insert(key)
                     }
                 }
+                continue
+            }
+
+            // Multi-chapter book with just a chapter number (no verse) → set chapter context
+            // e.g., "2 Timothy 4" after normalizer strips "chapter" keyword
+            if let chapter = matchChapterOnly(singleRegex, in: afterBook, book: occurrence.book) {
+                chapterContext = ChapterContext(book: occurrence.book, chapter: chapter, setAt: Date())
             }
         }
 
@@ -152,14 +201,148 @@ final class VerseDetector {
         detectFuzzyFallback(in: normalized, sourceText: text,
                             detected: &detected, detectedKeys: &detectedKeys)
 
+        // Phase 3: Standalone verse detection using chapter context
+        // e.g., "verse 9" → 2 Timothy 4:9 (when context is 2 Timothy chapter 4)
+        if let context = chapterContext,
+           Date().timeIntervalSince(context.setAt) < contextTimeout {
+            detectStandaloneVerses(in: text, context: context,
+                                   detected: &detected, detectedKeys: &detectedKeys)
+        }
+
         return detected
     }
 
     func clearHistory() {
         recentDetections.removeAll()
+        chapterContext = nil
     }
 
     // MARK: - Private Matching
+
+    /// Match a lone chapter number after a multi-chapter book name.
+    /// Returns the chapter number if valid, nil otherwise.
+    private func matchChapterOnly(
+        _ regex: NSRegularExpression?,
+        in text: String,
+        book: BibleBook
+    ) -> Int? {
+        guard let regex else { return nil }
+        let nsText = text as NSString
+        guard let match = regex.firstMatch(
+            in: text, range: NSRange(location: 0, length: nsText.length)
+        ) else { return nil }
+
+        let chapterStr = nsText.substring(with: match.range(at: 1))
+        guard let chapter = Int(chapterStr),
+              chapter >= 1,
+              chapter <= book.chapters.count else { return nil }
+        return chapter
+    }
+
+    /// Scan text for standalone "verse X" patterns and combine with active chapter context.
+    private func detectStandaloneVerses(
+        in text: String,
+        context: ChapterContext,
+        detected: inout [DetectedVerse],
+        detectedKeys: inout Set<String>
+    ) {
+        // Convert number words so "verse nine" becomes "verse 9"
+        let converted = NumberWordConverter.replaceNumberWordsInText(text)
+
+        // Try range pattern first: "verse(s) X through/to Y"
+        if let rangeRegex = standaloneVerseRangeRegex {
+            let nsText = converted as NSString
+            let matches = rangeRegex.matches(in: converted, range: NSRange(location: 0, length: nsText.length))
+            for match in matches {
+                guard match.numberOfRanges >= 3 else { continue }
+                let startStr = nsText.substring(with: match.range(at: 1))
+                let endStr = nsText.substring(with: match.range(at: 2))
+                guard let verseStart = Int(startStr), let verseEnd = Int(endStr) else { continue }
+                guard context.book.isValid(chapter: context.chapter, verse: verseStart) else { continue }
+                let validEnd = context.book.isValid(chapter: context.chapter, verse: verseEnd) ? verseEnd : nil
+
+                let reference = BibleReference(
+                    bookCode: context.book.code,
+                    bookName: context.book.name,
+                    chapter: context.chapter,
+                    verseStart: verseStart,
+                    verseEnd: validEnd
+                )
+                let key = reference.displayString
+                if !detectedKeys.contains(key) {
+                    detected.append(DetectedVerse(
+                        reference: reference,
+                        confidence: .medium,
+                        detectedAt: Date(),
+                        sourceText: text
+                    ))
+                    detectedKeys.insert(key)
+                }
+            }
+        }
+
+        // Try "and" pattern: "verse(s) X and Y"
+        if let andRegex = standaloneVerseAndRegex {
+            let nsText = converted as NSString
+            let matches = andRegex.matches(in: converted, range: NSRange(location: 0, length: nsText.length))
+            for match in matches {
+                guard match.numberOfRanges >= 3 else { continue }
+                let startStr = nsText.substring(with: match.range(at: 1))
+                let endStr = nsText.substring(with: match.range(at: 2))
+                guard let verseStart = Int(startStr), let verseEnd = Int(endStr) else { continue }
+                guard context.book.isValid(chapter: context.chapter, verse: verseStart) else { continue }
+                let validEnd = context.book.isValid(chapter: context.chapter, verse: verseEnd) ? verseEnd : nil
+
+                let reference = BibleReference(
+                    bookCode: context.book.code,
+                    bookName: context.book.name,
+                    chapter: context.chapter,
+                    verseStart: verseStart,
+                    verseEnd: validEnd
+                )
+                let key = reference.displayString
+                if !detectedKeys.contains(key) {
+                    detected.append(DetectedVerse(
+                        reference: reference,
+                        confidence: .medium,
+                        detectedAt: Date(),
+                        sourceText: text
+                    ))
+                    detectedKeys.insert(key)
+                }
+            }
+        }
+
+        // Try single verse pattern: "verse(s) X"
+        if let verseRegex = standaloneVerseRegex {
+            let nsText = converted as NSString
+            let matches = verseRegex.matches(in: converted, range: NSRange(location: 0, length: nsText.length))
+            for match in matches {
+                guard match.numberOfRanges >= 2 else { continue }
+                let verseStr = nsText.substring(with: match.range(at: 1))
+                guard let verse = Int(verseStr) else { continue }
+                guard context.book.isValid(chapter: context.chapter, verse: verse) else { continue }
+
+                let reference = BibleReference(
+                    bookCode: context.book.code,
+                    bookName: context.book.name,
+                    chapter: context.chapter,
+                    verseStart: verse,
+                    verseEnd: nil
+                )
+                let key = reference.displayString
+                if !detectedKeys.contains(key) {
+                    detected.append(DetectedVerse(
+                        reference: reference,
+                        confidence: .medium,
+                        detectedAt: Date(),
+                        sourceText: text
+                    ))
+                    detectedKeys.insert(key)
+                }
+            }
+        }
+    }
 
     /// Match a chapter:verse pattern in text after a known book name.
     private func matchChapterVerse(

@@ -61,6 +61,11 @@ final class AppState {
     var isWebServerEnabled: Bool = false
     var webServerPort: UInt16 = 8080
 
+    // MARK: - Embedding Model
+    let embeddingMatcher = EmbeddingMatcher()
+    var isEmbeddingModelLoaded = false
+    var isEmbeddingModelLoading = false
+
     // MARK: - HyperDeck Settings
     var hyperDeckClient = HyperDeckClient()
     var hyperDeckHost: String = ""
@@ -71,6 +76,30 @@ final class AppState {
         loadSettings()
         ensureOutputFolders()
         checkOutputFolderAvailability()
+
+        // Wire embedding matcher to web server
+        webServer.embeddingMatcher = embeddingMatcher
+
+        // Load embedding model in background (downloads on first use)
+        isEmbeddingModelLoading = true
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.embeddingMatcher.loadModel { progress in
+                    logger.info("Embedding model download: \(progress.fractionCompleted * 100, format: .fixed(precision: 0))%")
+                }
+                await MainActor.run {
+                    self.isEmbeddingModelLoaded = true
+                    self.isEmbeddingModelLoading = false
+                }
+                logger.info("Embedding model ready")
+            } catch {
+                await MainActor.run {
+                    self.isEmbeddingModelLoading = false
+                }
+                logger.error("Failed to load embedding model: \(error.localizedDescription)")
+            }
+        }
     }
 
     private func ensureOutputFolders() {
@@ -195,6 +224,7 @@ final class AppState {
         if isHyperDeckEnabled && !hyperDeckHost.isEmpty {
             hyperDeckClient.connect(host: hyperDeckHost, port: hyperDeckPort)
         }
+
     }
 
     func saveSettings() {
@@ -219,6 +249,7 @@ final class AppState {
         defaults.set(hyperDeckHost, forKey: "hyperDeckHost")
         defaults.set(Int(hyperDeckPort), forKey: "hyperDeckPort")
         defaults.set(isHyperDeckEnabled, forKey: "hyperDeckEnabled")
+
     }
 
     // MARK: - Error Display
@@ -273,9 +304,15 @@ final class AppState {
             service.onSegmentConfirmed = { [weak self] segment in
                 guard let self else { return }
 
+                // Build set of ALL previously detected verse keys (to avoid duplicates)
+                let previouslyDetectedKeys = Set(self.detectedVerses.map { $0.reference.displayString })
+
                 // Detect verses in current segment only (for highlighting)
                 let detected = detector.detect(in: segment.text)
-                var detectedKeys = Set(detected.map { $0.reference.displayString })
+                var newDetectedKeys = Set(detected.map { $0.reference.displayString })
+
+                // Filter out verses that were already detected in previous segments
+                let newDetected = detected.filter { !previouslyDetectedKeys.contains($0.reference.displayString) }
 
                 // Also check combined recent segments for cross-segment references
                 // (e.g., "2 Peter 1" in one segment, "verses 20 to 21" in next)
@@ -290,11 +327,11 @@ final class AppState {
                     let combinedDetected = detector.detect(in: combinedText)
                     for verse in combinedDetected {
                         let key = verse.reference.displayString
-                        // Only add if not already detected in current segment
-                        if !detectedKeys.contains(key) {
+                        // Only add if not already detected in current segment OR any previous segment
+                        if !newDetectedKeys.contains(key) && !previouslyDetectedKeys.contains(key) {
                             logger.info("Cross-segment detection: Found '\(key)' spanning segments")
                             crossSegmentDetected.append(verse)
-                            detectedKeys.insert(key)
+                            newDetectedKeys.insert(key)
                         }
                     }
                 }
@@ -309,9 +346,9 @@ final class AppState {
                 )
                 self.confirmedSegments.append(enrichedSegment)
 
-                // Process all detected verses (both in-segment and cross-segment) for capture
-                let allDetected = detected + crossSegmentDetected
-                for verse in allDetected {
+                // Process only NEW detected verses for capture
+                let allNewDetected = newDetected + crossSegmentDetected
+                for verse in allNewDetected {
                     self.detectedVerses.append(verse)
                     if self.isProPresenterConnected,
                        let indexer = self.presentationIndexer,
@@ -501,6 +538,18 @@ final class AppState {
 
         guard let indexer = presentationIndexer else { return }
 
+        // Check if book is even registered (fast check before doing anything)
+        let bookRegistered = await MainActor.run { indexer.map.hasBook(verse.reference.bookCode) }
+        if !bookRegistered {
+            let errorDetail = "Book '\(verse.reference.bookCode)' not found in Pro7 library"
+            await MainActor.run {
+                if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
+                    self.detectedVerses[idx].status = .failed(error: errorDetail)
+                }
+            }
+            return
+        }
+
         // Expand range into individual verse references
         let verseStart = verse.reference.verseStart
         let verseEnd = verse.reference.verseEnd ?? verseStart
@@ -534,17 +583,29 @@ final class AppState {
             return
         }
 
-        // Verify at least one verse can be found in Pro7
-        let firstLookup = versesToCapture.first.flatMap { indexer.map.lookup($0) }
+        // Try to look up the first verse (this triggers lazy loading if needed)
+        guard let firstRef = versesToCapture.first else { return }
+        let firstLookup = await indexer.lookup(firstRef)
+
         if firstLookup == nil {
-            if let firstRef = versesToCapture.first {
-                logger.error("captureVerseSlide: LOOKUP FAILED for \(firstRef.displayString)")
-                logger.error("  - map.hasBook('\(firstRef.bookCode)'): \(indexer.map.hasBook(firstRef.bookCode))")
-                logger.error("  - map.count: \(indexer.map.count)")
+            let mapInfo = await MainActor.run { (indexer.map.count, indexer.map.isBookLoaded(firstRef.bookCode)) }
+            logger.error("captureVerseSlide: LOOKUP FAILED for \(firstRef.displayString)")
+            logger.error("  - map.count: \(mapInfo.0), bookLoaded: \(mapInfo.1)")
+
+            let errorDetail: String
+            if mapInfo.0 == 0 {
+                errorDetail = "No books indexed - try clicking 'Index' again"
+            } else if !mapInfo.1 {
+                errorDetail = "Failed to load slides for \(firstRef.bookCode)"
+            } else {
+                errorDetail = "Verse '\(firstRef.displayString)' not found in Pro7"
             }
+
+            // Keep keys in set so we don't retry failed captures repeatedly
+            // (user can click "Clear Folders" to reset)
             await MainActor.run {
                 if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
-                    self.detectedVerses[idx].status = .failed(error: "Verse not found in ProPresenter library")
+                    self.detectedVerses[idx].status = .failed(error: errorDetail)
                 }
             }
             return
@@ -560,7 +621,8 @@ final class AppState {
         var capturedCount = 0
 
         for ref in versesToCapture {
-            guard let location = indexer.map.lookup(ref) else { continue }
+            // Use async lookup (book slides already loaded from first lookup)
+            guard let location = await indexer.lookup(ref) else { continue }
 
             // Fetch image data once from ProPresenter
             let imageData: Data
@@ -571,9 +633,12 @@ final class AppState {
                     slideIndex: location.slideIndex
                 )
             } catch {
+                // Keep keys in set so we don't retry failed captures repeatedly
+                // (user can click "Clear Folders" to reset)
+                let errorMsg = "\(error.localizedDescription) (slide \(location.slideIndex))"
                 await MainActor.run {
                     if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
-                        self.detectedVerses[idx].status = .failed(error: error.localizedDescription)
+                        self.detectedVerses[idx].status = .failed(error: errorMsg)
                     }
                 }
                 return

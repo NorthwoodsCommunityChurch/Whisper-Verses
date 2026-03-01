@@ -157,6 +157,59 @@ body {
     font-size: 0.9rem;
 }
 
+/* Session Active State */
+
+.session-active {
+    background: var(--surface-color);
+    border: 2px solid var(--accent-color);
+    border-radius: var(--border-radius);
+    padding: 40px;
+    text-align: center;
+}
+
+.session-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+}
+
+.session-active h2 {
+    font-size: 1.5rem;
+    margin-bottom: 12px;
+    color: var(--accent-color);
+}
+
+.session-active p {
+    color: var(--text-muted);
+    margin-bottom: 24px;
+}
+
+.session-active strong {
+    color: var(--text-color);
+}
+
+.session-actions {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.end-session-btn {
+    padding: 12px 24px;
+    background: transparent;
+    color: var(--error-color);
+    border: 2px solid var(--error-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.end-session-btn:hover {
+    background: var(--error-color);
+    color: white;
+}
+
 /* Follow Page */
 
 .follow-page {
@@ -188,9 +241,12 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 24px;
+    padding: 12px 24px;
     background: var(--surface-color);
     border-bottom: 1px solid #333;
+    z-index: 20;
+    position: relative;
+    flex-shrink: 0;
 }
 
 .header-left {
@@ -200,13 +256,13 @@ body {
 }
 
 .follow-header h1 {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     color: var(--accent-color);
 }
 
 .filename {
     color: var(--text-muted);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 .header-right {
@@ -216,8 +272,8 @@ body {
 }
 
 .connection-status {
-    font-size: 0.85rem;
-    padding: 4px 12px;
+    font-size: 0.8rem;
+    padding: 4px 10px;
     border-radius: 20px;
     background: #333;
 }
@@ -235,20 +291,19 @@ body {
 .clip-button {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
+    gap: 6px;
+    padding: 6px 14px;
     background: var(--accent-color);
     color: white;
     border: none;
-    border-radius: 8px;
-    font-size: 0.95rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .clip-button:hover {
     background: var(--accent-hover);
-    transform: scale(1.02);
 }
 
 .clip-button:active {
@@ -256,16 +311,28 @@ body {
 }
 
 .clip-icon {
-    font-size: 1.1rem;
+    font-size: 1rem;
 }
 
-/* Manuscript View */
+/* Main Manuscript Area */
 
-.manuscript-view {
+.manuscript-main {
     flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.manuscript-scroll {
+    height: 100%;
     overflow-y: auto;
-    padding: 40px 24px;
     scroll-behavior: smooth;
+}
+
+.manuscript-content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px;
+    padding-bottom: 50vh; /* Allow scrolling past end */
 }
 
 .loading {
@@ -274,30 +341,30 @@ body {
     padding: 60px;
 }
 
-.chunk {
-    max-width: 800px;
-    margin: 0 auto 32px;
-    padding: 24px;
-    border-radius: var(--border-radius);
-    font-size: 1.25rem;
-    line-height: 1.8;
-    transition: all 0.3s ease;
-    border-left: 4px solid transparent;
+/* Chunk styling - all text same color, no fading */
+
+.chunk-section {
+    padding: 8px 20px;
+    margin-bottom: 4px;
 }
 
-.chunk.past {
-    opacity: 0.4;
-    color: var(--text-muted);
+.chunk-section p {
+    font-size: 1.15rem;
+    line-height: 1.75;
+    margin-bottom: 0.6em;
+    color: var(--text-color);
 }
 
-.chunk.current {
-    background: rgba(74, 158, 255, 0.1);
-    border-left-color: var(--accent-color);
-    opacity: 1;
+.chunk-section p:last-child {
+    margin-bottom: 0;
 }
 
-.chunk.future {
-    opacity: 0.7;
+/* Matched words - highlighted in red for debugging */
+.matched {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.15);
+    border-radius: 2px;
+    padding: 0 2px;
 }
 
 /* Off-Script Warning */
@@ -318,6 +385,7 @@ body {
     font-size: 1.1rem;
     transition: transform 0.3s ease;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    z-index: 100;
 }
 
 .off-script-warning.visible {

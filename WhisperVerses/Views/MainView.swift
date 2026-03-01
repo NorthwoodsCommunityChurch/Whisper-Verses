@@ -19,6 +19,25 @@ struct MainView: View {
             }
             .frame(minWidth: 350)
         }
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button(appState.isListening ? "Stop" : "Start Listening") {
+                    Task { await appState.toggleListening() }
+                }
+                .keyboardShortcut("l", modifiers: .command)
+                .foregroundStyle(appState.isListening ? .red : .accentColor)
+
+                Button("Clear Folders") {
+                    appState.clearOutputFolders()
+                }
+                .keyboardShortcut("k", modifiers: [.command, .shift])
+
+                Button("Reset Whisper") {
+                    appState.resetWhisper()
+                }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+            }
+        }
         .task {
             appState.audioDeviceManager.refreshDevices()
             appState.availableAudioDevices = appState.audioDeviceManager.devices

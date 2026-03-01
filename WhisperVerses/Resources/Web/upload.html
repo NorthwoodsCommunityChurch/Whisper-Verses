@@ -14,6 +14,18 @@
         </header>
 
         <main>
+            <!-- Session active notice (hidden by default) -->
+            <div class="session-active" id="sessionActive" style="display: none;">
+                <div class="session-icon">📖</div>
+                <h2>Session In Progress</h2>
+                <p>Currently following: <strong id="activeFilename"></strong></p>
+                <div class="session-actions">
+                    <a href="/follow" class="file-button">Join Session</a>
+                    <button class="end-session-btn" id="endSessionBtn">End Session</button>
+                </div>
+            </div>
+
+            <!-- Upload zone (shown when no session) -->
             <div class="upload-zone" id="dropZone">
                 <div class="upload-icon">📄</div>
                 <h2>Upload Manuscript</h2>
@@ -42,6 +54,42 @@
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const status = document.getElementById('status');
+        const sessionActive = document.getElementById('sessionActive');
+        const activeFilename = document.getElementById('activeFilename');
+        const endSessionBtn = document.getElementById('endSessionBtn');
+
+        // Check session status on load
+        checkSessionStatus();
+
+        async function checkSessionStatus() {
+            try {
+                const response = await fetch('/api/session');
+                const data = await response.json();
+
+                if (data.hasSession) {
+                    // Session is active - show join option
+                    dropZone.style.display = 'none';
+                    sessionActive.style.display = 'block';
+                    activeFilename.textContent = data.filename || 'Unknown';
+                } else {
+                    // No session - show upload
+                    dropZone.style.display = 'block';
+                    sessionActive.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Failed to check session status:', error);
+            }
+        }
+
+        // End session button
+        endSessionBtn.addEventListener('click', async () => {
+            try {
+                await fetch('/api/session/end', { method: 'POST' });
+                checkSessionStatus();
+            } catch (error) {
+                showStatus('Failed to end session: ' + error.message, 'error');
+            }
+        });
 
         // Drag and drop handlers
         dropZone.addEventListener('dragover', (e) => {
@@ -93,7 +141,7 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    // Store text in sessionStorage for the follow page
+                    // Store text and filename in sessionStorage for the follow page
                     sessionStorage.setItem('manuscriptText', result.text);
                     sessionStorage.setItem('manuscriptFilename', file.name);
 
@@ -103,7 +151,7 @@
                         window.location.href = '/follow';
                     }, 500);
                 } else {
-                    showStatus('Failed to parse file', 'error');
+                    showStatus(result.error || 'Failed to parse file', 'error');
                 }
             } catch (error) {
                 showStatus('Upload failed: ' + error.message, 'error');

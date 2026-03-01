@@ -22,6 +22,33 @@ struct SpokenFormNormalizer {
             return "\(ch):\(vs)-\(ve)"
         }
 
+        // 1.5. "chapter X and verse(s) Y through/to/thru Z" → "X:Y-Z"
+        // Handles: "Isaiah chapter 1 and verse 18 through 20", "James chapter 3 and verse 17 to 19"
+        // Must come before step 2 to prevent its greedy group from matching "X and" as the chapter
+        result = replacePattern(
+            #"(?i)\bchapter\s+(\w+)\s+and\s+verse[s]?\s+(\w+(?:[\s-]\w+)?)\s+(?:through|to|thru)\s+(\w+(?:[\s-]\w+)?)"#,
+            in: result
+        ) { _, groups in
+            guard groups.count >= 3 else { return nil }
+            let ch = NumberWordConverter.convert(groups[0]) ?? groups[0]
+            let vs = NumberWordConverter.convert(groups[1]) ?? groups[1]
+            let ve = NumberWordConverter.convert(groups[2]) ?? groups[2]
+            return "\(ch):\(vs)-\(ve)"
+        }
+
+        // 1.7. "chapter X and verse(s) Y" → "X:Y"
+        // Handles: "Isaiah chapter 1 and verse 18", "James chapter 3 and verse 17"
+        // Must come before step 2 to prevent its greedy group from matching "X and" as the chapter
+        result = replacePattern(
+            #"(?i)\bchapter\s+(\w+)\s+and\s+verse[s]?\s+(\w+(?:[\s-]\w+)?)"#,
+            in: result
+        ) { _, groups in
+            guard groups.count >= 2 else { return nil }
+            let ch = NumberWordConverter.convert(groups[0]) ?? groups[0]
+            let vs = NumberWordConverter.convert(groups[1]) ?? groups[1]
+            return "\(ch):\(vs)"
+        }
+
         // 2. "chapter X verse(s) Y" → "X:Y"
         result = replacePattern(
             #"(?i)\bchapter\s+(\w+(?:[\s-]\w+)?)\s*,?\s*verse[s]?\s+(\w+(?:[\s-]\w+)?)"#,
@@ -74,7 +101,18 @@ struct SpokenFormNormalizer {
         // 6. Replace number words with digits throughout
         result = NumberWordConverter.replaceNumberWordsInText(result)
 
-        // 7. Replace "through/to/thru" between digits with "-"
+        // 7. Strip standalone "chapter N" → "N"
+        // Steps 1-2 already converted "chapter X verse Y" → "X:Y".
+        // Any remaining "chapter \d+" is a standalone chapter reference.
+        result = replacePattern(
+            #"(?i)\bchapter\s+(\d{1,3})\b"#,
+            in: result
+        ) { _, groups in
+            guard groups.count >= 1 else { return nil }
+            return groups[0]
+        }
+
+        // 8. Replace "through/to/thru" between digits with "-"
         result = replacePattern(
             #"(\d+)\s+(?:through|to|thru)\s+(\d+)"#,
             in: result
@@ -83,7 +121,7 @@ struct SpokenFormNormalizer {
             return "\(groups[0])-\(groups[1])"
         }
 
-        // 8. Handle "chapter in verse-range" pattern: "1 in 20-21" → "1:20-21"
+        // 9. Handle "chapter in verse-range" pattern: "1 in 20-21" → "1:20-21"
         // This occurs when "verses X to Y" is normalized to "X-Y" but preceded by chapter
         result = replacePattern(
             #"(\d{1,3})\s+in\s+(\d{1,3})(?:-(\d{1,3}))?"#,

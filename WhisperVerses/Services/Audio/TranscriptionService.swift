@@ -188,11 +188,22 @@ final class TranscriptionService {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !text.isEmpty else { continue }
 
+                // Extract word-level timing from WhisperKit segment
+                let timedWords: [TimedWord] = segment.words?.map { wordTiming in
+                    TimedWord(
+                        word: wordTiming.word,
+                        start: TimeInterval(wordTiming.start),
+                        end: TimeInterval(wordTiming.end),
+                        probability: wordTiming.probability
+                    )
+                } ?? []
+
                 let transcriptSegment = TranscriptSegment(
                     text: text,
                     startTime: TimeInterval(segment.start),
                     endTime: TimeInterval(segment.end),
-                    isConfirmed: true
+                    isConfirmed: true,
+                    words: timedWords
                 )
 
                 confirmedSegments.append(transcriptSegment)

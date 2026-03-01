@@ -7,53 +7,59 @@ class ManuscriptFollower {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
         this.reconnectDelay = 1000;
+        this.isSessionOwner = false;
 
         this.container = document.getElementById('container');
-        this.manuscriptView = document.getElementById('manuscriptView');
+        this.manuscriptScroll = document.getElementById('manuscriptScroll');
+        this.manuscriptContent = document.getElementById('manuscriptContent');
         this.connectionStatus = document.getElementById('connectionStatus');
         this.offScriptWarning = document.getElementById('offScriptWarning');
         this.filenameEl = document.getElementById('filename');
         this.clipButton = document.getElementById('clipButton');
 
+        // Store chunk elements for scroll positioning
+        this.chunkElements = [];
+        this.manuscriptRendered = false;
+
         this.init();
     }
 
     init() {
-        // Check for manuscript in session storage
+        // Check for manuscript in session storage (uploaders have this)
         const manuscriptText = sessionStorage.getItem('manuscriptText');
         const filename = sessionStorage.getItem('manuscriptFilename');
-
-        if (!manuscriptText) {
-            window.location.href = '/';
-            return;
-        }
 
         if (filename) {
             this.filenameEl.textContent = filename;
         }
 
-        this.connect();
+        // Connect to WebSocket - we'll either send manuscript or just listen
+        this.connect(manuscriptText, filename);
         this.setupEventListeners();
     }
 
-    connect() {
+    connect(manuscriptText = null, filename = null) {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws`;
 
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
+            console.log('WebSocket connected');
             this.reconnectAttempts = 0;
             this.updateConnectionStatus(true);
 
-            // Send manuscript
-            const manuscriptText = sessionStorage.getItem('manuscriptText');
+            // Send manuscript if we have one (we're the uploader)
             if (manuscriptText) {
-                this.ws.send(JSON.stringify({
+                const message = JSON.stringify({
                     type: 'manuscript',
-                    content: manuscriptText
-                }));
+                    content: manuscriptText,
+                    filename: filename || 'Unknown'
+                });
+                this.ws.send(message);
+                this.isSessionOwner = true;
             }
+            // Otherwise we're joining an existing session - server will send current state
         };
 
         this.ws.onmessage = (event) => {
@@ -79,9 +85,7 @@ class ManuscriptFollower {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
             const delay = this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts - 1);
-
             this.connectionStatus.textContent = `Reconnecting (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`;
-
             setTimeout(() => this.connect(), delay);
         } else {
             this.connectionStatus.textContent = 'Connection failed';
@@ -101,6 +105,24 @@ class ManuscriptFollower {
     }
 
     handleUpdate(data) {
+        // Handle session ended
+        if (data.type === 'sessionEnded') {
+            sessionStorage.removeItem('manuscriptText');
+            sessionStorage.removeItem('manuscriptFilename');
+            window.location.href = '/';
+            return;
+        }
+
+        // Handle errors (e.g., session already active)
+        if (data.type === 'error') {
+            console.warn('Server error:', data.message);
+            if (data.filename) {
+                this.filenameEl.textContent = data.filename;
+            }
+            // Don't redirect - we can still view the existing session
+            return;
+        }
+
         // Update off-script state
         if (data.isOffScript) {
             this.container.classList.add('off-script');
@@ -110,39 +132,106 @@ class ManuscriptFollower {
             this.offScriptWarning.classList.remove('visible');
         }
 
-        // Render chunks
+        // Render chunks if we have them
         if (data.chunks && data.chunks.length > 0) {
-            this.renderChunks(data.chunks, data.currentPosition);
+            this.renderManuscript(data.chunks, data.currentPosition, data.matchedWords || {});
         }
     }
 
-    renderChunks(chunks, currentPosition) {
-        // Only re-render if position changed or first render
-        if (this.currentPosition === currentPosition && this.manuscriptView.children.length > 1) {
-            // Just update classes
-            const chunkElements = this.manuscriptView.querySelectorAll('.chunk');
-            chunkElements.forEach((el, idx) => {
-                el.className = 'chunk ' + chunks[idx].status;
+    renderManuscript(chunks, currentPosition, matchedWords = {}) {
+        // Render the manuscript (only once)
+        if (!this.manuscriptRendered) {
+            this.manuscriptContent.innerHTML = '';
+            this.chunkElements = [];
+
+            chunks.forEach((chunk, idx) => {
+                const chunkEl = document.createElement('div');
+                chunkEl.className = 'chunk-section ' + chunk.status;
+                chunkEl.dataset.id = chunk.id;
+
+                // Split chunk text into paragraphs
+                const text = chunk.text;
+                const paragraphs = text.includes('\n\n')
+                    ? text.split(/\n\n+/)
+                    : text.split(/\n/);
+
+                paragraphs.forEach(para => {
+                    const trimmed = para.trim();
+                    if (trimmed) {
+                        const p = document.createElement('p');
+                        p.textContent = trimmed;
+                        chunkEl.appendChild(p);
+                    }
+                });
+
+                this.manuscriptContent.appendChild(chunkEl);
+                this.chunkElements.push(chunkEl);
             });
+
+            this.manuscriptRendered = true;
         } else {
-            // Full re-render
-            this.manuscriptView.innerHTML = chunks.map((chunk, idx) =>
-                `<div class="chunk ${chunk.status}" data-id="${chunk.id}">${this.escapeHtml(chunk.text)}</div>`
-            ).join('');
+            // Update chunk statuses
+            chunks.forEach((chunk, idx) => {
+                if (this.chunkElements[idx]) {
+                    this.chunkElements[idx].className = 'chunk-section ' + chunk.status;
+                }
+            });
+        }
 
+        // Highlight matched words in chunks
+        this.highlightMatchedWords(matchedWords);
+
+        // Scroll to current position if changed
+        if (this.currentPosition !== currentPosition) {
             this.currentPosition = currentPosition;
-
-            // Scroll to current chunk
             this.scrollToCurrentChunk();
         }
     }
 
-    scrollToCurrentChunk() {
-        const currentChunk = this.manuscriptView.querySelector('.chunk.current');
-        if (currentChunk) {
-            currentChunk.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center'
+    highlightMatchedWords(matchedWords) {
+        // Clear previous highlights
+        this.chunkElements.forEach(chunkEl => {
+            const paragraphs = chunkEl.querySelectorAll('p');
+            paragraphs.forEach(p => {
+                if (p.querySelector('.matched')) {
+                    // Restore original text
+                    p.textContent = p.textContent;
+                }
+            });
+        });
+
+        // Apply new highlights
+        for (const [chunkIdxStr, words] of Object.entries(matchedWords)) {
+            const chunkIdx = parseInt(chunkIdxStr);
+            const chunkEl = this.chunkElements[chunkIdx];
+            if (!chunkEl) continue;
+
+            // Create a set of lowercase matched words for quick lookup
+            const matchedSet = new Set(words.map(w => w.toLowerCase()));
+
+            // Process each paragraph in the chunk
+            const paragraphs = chunkEl.querySelectorAll('p');
+            paragraphs.forEach(p => {
+                const originalText = p.textContent;
+                // Split into words while preserving delimiters
+                const parts = originalText.split(/(\s+|[.,!?;:'"()-]+)/);
+
+                let hasMatches = false;
+                const html = parts.map(part => {
+                    // Normalize the word for comparison
+                    const normalized = part.toLowerCase().replace(/[^a-z]/g, '');
+                    // Allow any length word to be highlighted if it's in the matched set
+                    // (gap-filling includes short words like "to", "a", "in")
+                    if (normalized.length >= 1 && matchedSet.has(normalized)) {
+                        hasMatches = true;
+                        return `<span class="matched">${this.escapeHtml(part)}</span>`;
+                    }
+                    return this.escapeHtml(part);
+                }).join('');
+
+                if (hasMatches) {
+                    p.innerHTML = html;
+                }
             });
         }
     }
@@ -153,6 +242,31 @@ class ManuscriptFollower {
         return div.innerHTML;
     }
 
+    scrollToCurrentChunk() {
+        if (this.currentPosition < 0 || this.currentPosition >= this.chunkElements.length) {
+            return;
+        }
+
+        const chunkEl = this.chunkElements[this.currentPosition];
+        if (!chunkEl) return;
+
+        // Scroll so current chunk is near the top of the viewport
+        const scrollContainer = this.manuscriptScroll;
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const chunkRect = chunkEl.getBoundingClientRect();
+
+        // Calculate where chunk currently is relative to container
+        const chunkTopInContainer = chunkRect.top - containerRect.top + scrollContainer.scrollTop;
+
+        // Scroll to put chunk near top with some padding
+        const targetScroll = chunkTopInContainer - 20;
+
+        scrollContainer.scrollTo({
+            top: Math.max(0, targetScroll),
+            behavior: 'smooth'
+        });
+    }
+
     setupEventListeners() {
         // Clip button
         this.clipButton.addEventListener('click', () => this.sendClip());
@@ -160,17 +274,16 @@ class ManuscriptFollower {
         // Keyboard shortcut for clip (C key)
         document.addEventListener('keydown', (e) => {
             if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                // Don't trigger if user is typing in an input
                 if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
                     this.sendClip();
                 }
             }
         });
 
-        // Clear session on page unload
-        window.addEventListener('beforeunload', () => {
-            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                this.ws.send(JSON.stringify({ type: 'reset' }));
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (this.currentPosition >= 0) {
+                this.scrollToCurrentChunk();
             }
         });
     }

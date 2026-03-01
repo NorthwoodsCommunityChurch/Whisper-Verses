@@ -75,6 +75,33 @@ final class SpokenFormNormalizerTests: XCTestCase {
         XCTAssertEqual(result, "and he said to them")
     }
 
+    // MARK: - "Chapter X and Verse Y" Patterns (real sermon transcript phrases)
+
+    func testChapterAndVerseSimple() {
+        // "Isaiah chapter 1 and verse 18" — bug: step 2 greedily matched "1 and" as chapter
+        let result = normalizer.normalize("Isaiah chapter 1 and verse 18")
+        XCTAssertTrue(result.contains("1:18"), "Expected '1:18' in '\(result)'")
+        XCTAssertFalse(result.contains("and"), "Should not contain 'and' after normalization")
+    }
+
+    func testChapterAndVerseTwoDigitChapter() {
+        // "James chapter 3 and verse 17"
+        let result = normalizer.normalize("James chapter 3 and verse 17")
+        XCTAssertTrue(result.contains("3:17"), "Expected '3:17' in '\(result)'")
+    }
+
+    func testChapterAndVerseWithRange() {
+        // "Matthew chapter 5 and verse 3 through 12"
+        let result = normalizer.normalize("Matthew chapter 5 and verse 3 through 12")
+        XCTAssertTrue(result.contains("5:3-12"), "Expected '5:3-12' in '\(result)'")
+    }
+
+    func testChapterAndVersePlural() {
+        // "Luke chapter 15 and verses 11 through 32"
+        let result = normalizer.normalize("Luke chapter 15 and verses 11 through 32")
+        XCTAssertTrue(result.contains("15:11-32"), "Expected '15:11-32' in '\(result)'")
+    }
+
     // MARK: - Psalms 150:6 Exact Transcript Test
 
     func testPsalm150Verse6Transcript() {

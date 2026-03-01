@@ -13,6 +13,9 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     from: 2.0.0
+  mlx-swift-lm:
+    url: https://github.com/ml-explore/mlx-swift-lm
+    from: 2.30.0
 
 targets:
   WhisperVerses:
@@ -24,12 +27,12 @@ targets:
       - WhisperVerses/Resources/Assets.xcassets
       - WhisperVerses/Resources/BibleBooks.json
       - path: WhisperVerses/Resources/Web
-        buildPhase: resources
+        type: folder
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.northwoods.WhisperVerses
-        MARKETING_VERSION: "1.1.1"
-        CURRENT_PROJECT_VERSION: 2
+        MARKETING_VERSION: "1.1.2"
+        CURRENT_PROJECT_VERSION: 3
         INFOPLIST_FILE: WhisperVerses/Info.plist
         CODE_SIGN_ENTITLEMENTS: WhisperVerses/WhisperVerses.entitlements
         CODE_SIGN_IDENTITY: "-"
@@ -39,6 +42,8 @@ targets:
     dependencies:
       - package: WhisperKit
       - package: Sparkle
+      - package: mlx-swift-lm
+        product: MLXEmbedders
     entitlements:
       path: WhisperVerses/WhisperVerses.entitlements
 

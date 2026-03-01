@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TranscriptPanelView: View {
     @Environment(AppState.self) private var appState
+    @State private var copiedFlash = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -10,6 +11,26 @@ struct TranscriptPanelView: View {
                 Text("Whisper Transcript")
                     .font(.headline)
                 Spacer()
+                Button {
+                    let fullText = appState.confirmedSegments
+                        .map { "\($0.formattedTime)  \($0.text)" }
+                        .joined(separator: "\n")
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(fullText, forType: .string)
+                    copiedFlash = true
+                    Task {
+                        try? await Task.sleep(nanoseconds: 1_500_000_000)
+                        copiedFlash = false
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: copiedFlash ? "checkmark" : "doc.on.doc")
+                        Text(copiedFlash ? "Copied" : "Copy")
+                    }
+                    .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .disabled(appState.confirmedSegments.isEmpty)
                 if appState.isListening {
                     HStack(spacing: 4) {
                         Circle()

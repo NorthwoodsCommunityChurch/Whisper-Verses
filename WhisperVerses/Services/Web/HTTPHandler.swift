@@ -59,6 +59,18 @@ struct HTTPRequest {
 
         let body = Data(data[headerEnd.upperBound...])
 
+        // Check if we have received the full body based on Content-Length
+        if let contentLengthStr = headers["Content-Length"],
+           let contentLength = Int(contentLengthStr) {
+            // Wait for full body
+            if body.count < contentLength {
+                return nil  // Not enough data yet
+            }
+            // Trim body to exact content length
+            let trimmedBody = body.prefix(contentLength)
+            return HTTPRequest(method: method, path: path, headers: headers, body: Data(trimmedBody))
+        }
+
         return HTTPRequest(method: method, path: path, headers: headers, body: body)
     }
 }
@@ -129,6 +141,17 @@ struct HTTPResponse {
         )
     }
 
+    static func jsonError(_ message: String, statusCode: Int = 400) -> HTTPResponse {
+        let json = ["success": false, "error": message] as [String: Any]
+        let jsonData = (try? JSONSerialization.data(withJSONObject: json)) ?? Data()
+        return HTTPResponse(
+            statusCode: statusCode,
+            statusText: statusCode == 400 ? "Bad Request" : "Error",
+            headers: ["Content-Type": "application/json"],
+            body: jsonData
+        )
+    }
+
     static func redirect(to url: String) -> HTTPResponse {
         HTTPResponse(
             statusCode: 302,
@@ -163,7 +186,11 @@ enum HTTPHandler {
     }
 
     private static func serveStaticFile(_ filename: String, contentType: String) -> HTTPResponse {
-        guard let url = Bundle.main.url(forResource: filename, withExtension: nil, subdirectory: "Web") else {
+        // Try Web subdirectory first, then root Resources
+        let url = Bundle.main.url(forResource: filename, withExtension: nil, subdirectory: "Web")
+            ?? Bundle.main.url(forResource: filename, withExtension: nil)
+
+        guard let url else {
             logger.warning("Static file not found: \(filename)")
             return .notFound()
         }
@@ -179,7 +206,7 @@ enum HTTPHandler {
 
     private static func handleUpload(_ request: HTTPRequest) -> HTTPResponse {
         guard let contentType = request.contentType else {
-            return .badRequest("Missing Content-Type")
+            return .jsonError("Missing Content-Type")
         }
 
         // Parse multipart form data
@@ -191,24 +218,34 @@ enum HTTPHandler {
                     return .ok(data: jsonData, contentType: "application/json")
                 }
             }
-            return .badRequest("Failed to parse uploaded file")
+            return .jsonError("Failed to parse uploaded file")
         }
 
-        return .badRequest("Unsupported Content-Type")
+        return .jsonError("Unsupported Content-Type")
     }
 
     private static func parseMultipartFile(_ request: HTTPRequest) -> String? {
         guard let contentType = request.contentType,
               let boundaryRange = contentType.range(of: "boundary=") else {
+            logger.error("parseMultipartFile: Missing boundary in Content-Type")
             return nil
         }
 
-        let boundary = "--" + String(contentType[boundaryRange.upperBound...])
+        var boundaryString = String(contentType[boundaryRange.upperBound...])
+        // Remove any trailing parameters (like ; or extra spaces)
+        if let semicolonIndex = boundaryString.firstIndex(of: ";") {
+            boundaryString = String(boundaryString[..<semicolonIndex])
+        }
+        boundaryString = boundaryString.trimmingCharacters(in: .whitespaces)
+        let boundary = "--" + boundaryString
+
+        logger.info("parseMultipartFile: Body size=\(request.body.count), boundary='\(boundary)'")
         let body = request.body
 
         // Find file content between boundaries
         guard let boundaryData = boundary.data(using: .utf8),
               let firstBoundary = body.range(of: boundaryData) else {
+            logger.error("parseMultipartFile: Boundary not found in body")
             return nil
         }
 
@@ -216,19 +253,23 @@ enum HTTPHandler {
 
         // Find the end of headers (blank line)
         guard let headerEnd = afterFirstBoundary.range(of: Data([0x0D, 0x0A, 0x0D, 0x0A])) else {
+            logger.error("parseMultipartFile: Header end (CRLFCRLF) not found")
             return nil
         }
 
         // Extract headers to determine filename
         let headerData = afterFirstBoundary[..<headerEnd.lowerBound]
         let headerString = String(data: headerData, encoding: .utf8) ?? ""
+        logger.info("parseMultipartFile: Headers=\(headerString)")
 
         // Get content after headers
         let contentStart = headerEnd.upperBound
         let content = afterFirstBoundary[contentStart...]
+        logger.info("parseMultipartFile: Content size=\(content.count)")
 
         // Find next boundary
         guard let nextBoundary = content.range(of: boundaryData) else {
+            logger.error("parseMultipartFile: End boundary not found in content")
             return nil
         }
 
@@ -237,9 +278,11 @@ enum HTTPHandler {
         if fileData.suffix(2) == Data([0x0D, 0x0A]) {
             fileData = fileData.dropLast(2)
         }
+        logger.info("parseMultipartFile: File data size=\(fileData.count)")
 
         // Determine file type from filename in headers
         let isDocx = headerString.lowercased().contains(".docx")
+        logger.info("parseMultipartFile: isDocx=\(isDocx)")
 
         if isDocx {
             return DocumentParser.parseDocx(fileData)

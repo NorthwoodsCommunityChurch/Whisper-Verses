@@ -3,101 +3,105 @@ import os.log
 
 private let logger = Logger(subsystem: "com.whisperverses", category: "ProPresentationMap")
 
-/// Maps Bible book codes to ProPresenter presentation UUIDs and computes
-/// slide indices on-the-fly using verse count data from BibleBooks.json.
+/// Maps Bible verse references to ProPresenter slide locations.
+/// Uses actual slide labels from Pro7 presentations for accurate lookups,
+/// independent of Bible translation verse numbering differences.
 ///
-/// Instead of pre-computing all ~31,000 verse→slide mappings, we store one entry
-/// per Bible book (66 entries) and calculate the slide index when needed.
+/// Supports lazy loading: books are registered with just their UUID first,
+/// then slides are fetched on-demand when a verse from that book is needed.
 struct ProPresentationMap {
-
-    struct BookEntry {
-        let presentationUUID: String
-        let bookCode: String
-        let chapters: [Int]  // verse counts per chapter (index 0 = chapter 1)
-    }
 
     struct SlideLocation {
         let presentationUUID: String
         let slideIndex: Int
     }
 
-    private var bookEntries: [String: BookEntry] = [:]  // bookCode → entry
+    /// Book code → presentation UUID (populated during initial index)
+    private var bookPresentations: [String: String] = [:]
 
-    /// Register a Bible book with its Pro7 presentation UUID and verse count data.
-    mutating func register(bookCode: String, presentationUUID: String, chapters: [Int]) {
-        bookEntries[bookCode] = BookEntry(
-            presentationUUID: presentationUUID,
-            bookCode: bookCode,
-            chapters: chapters
-        )
+    /// Maps "BookName Chapter:Verse" → SlideLocation
+    /// e.g., "Matthew 28:19" → SlideLocation(uuid, 1066)
+    /// Populated lazily per book when first accessed.
+    private var verseLookup: [String: SlideLocation] = [:]
+
+    /// Tracks which book codes have had their slides loaded
+    private var loadedBooks: Set<String> = []
+
+    /// Register a book with its presentation UUID (fast, no slide fetching).
+    /// Call this during initial indexing for all 66 books.
+    mutating func registerBook(bookCode: String, presentationUUID: String) {
+        bookPresentations[bookCode] = presentationUUID
+        logger.debug("ProPresentationMap: Registered book \(bookCode) → \(presentationUUID.prefix(8))...")
     }
 
-    /// Look up the Pro7 presentation UUID and slide index for a verse reference.
-    /// Slide index is calculated as: sum of verses in all preceding chapters + (verse - 1).
-    /// e.g., John 3:16 → chapters[0..1] = 51+25 = 76, verse offset = 15, slide = 91.
-    func lookup(_ reference: BibleReference) -> SlideLocation? {
-        guard let entry = bookEntries[reference.bookCode] else {
-            logger.error("ProPresentationMap.lookup: FAILED - No entry for bookCode '\(reference.bookCode)'")
-            logger.error("  - Requested: \(reference.bookCode) \(reference.chapter):\(reference.verseStart)")
-            logger.error("  - Available bookCodes (\(bookEntries.count)): \(bookEntries.keys.sorted().joined(separator: ", "))")
-            return nil
-        }
+    /// Register all slides from a presentation, parsing verse labels.
+    /// Labels are expected to be in format "BookName Chapter:Verse" (e.g., "Matthew 28:19").
+    /// Called lazily when a book's verses are first accessed.
+    mutating func registerSlides(bookCode: String, presentationUUID: String, slideLabels: [String]) {
+        loadedBooks.insert(bookCode)
 
-        let chapter = reference.chapter
-        guard chapter >= 1 && chapter <= entry.chapters.count else {
-            logger.error("ProPresentationMap.lookup: FAILED - Chapter out of range")
-            logger.error("  - Requested: \(reference.bookCode) \(chapter):\(reference.verseStart)")
-            logger.error("  - chapters.count: \(entry.chapters.count)")
-            return nil
-        }
-        guard reference.verseStart >= 1 && reference.verseStart <= entry.chapters[chapter - 1] else {
-            logger.error("ProPresentationMap.lookup: FAILED - Verse out of range")
-            logger.error("  - Requested: \(reference.bookCode) \(chapter):\(reference.verseStart)")
-            logger.error("  - Max verse for chapter \(chapter): \(entry.chapters[chapter - 1])")
-            return nil
-        }
-
-        // Sum verses in all chapters before the target chapter
-        var slideIndex = 0
-        for c in 0..<(chapter - 1) {
-            slideIndex += entry.chapters[c]
-        }
-        // Add the verse offset within the chapter (0-based)
-        slideIndex += reference.verseStart - 1
-
-        return SlideLocation(presentationUUID: entry.presentationUUID, slideIndex: slideIndex)
-    }
-
-    /// Reverse-lookup: given a presentation UUID and slide index, return the verse reference string.
-    /// e.g., presentationUUID for Matthew + slide 1069 → "Matthew 28:19"
-    func verseLabel(presentationUUID: String, slideIndex: Int) -> String? {
-        guard let entry = bookEntries.values.first(where: { $0.presentationUUID == presentationUUID }) else {
-            return nil
-        }
-
-        // Walk chapters to find which chapter and verse this slide index maps to
-        var remaining = slideIndex
-        for (chapterIdx, verseCount) in entry.chapters.enumerated() {
-            if remaining < verseCount {
-                let chapter = chapterIdx + 1
-                let verse = remaining + 1
-                // Look up the book name from BibleBookIndex
-                let bookIndex = BibleBookIndex.load()
-                if let book = bookIndex.lookup(entry.bookCode) {
-                    return "\(book.name) \(chapter):\(verse)"
-                }
-                return "\(entry.bookCode) \(chapter):\(verse)"
+        var addedCount = 0
+        for (index, label) in slideLabels.enumerated() {
+            // Store the label exactly as Pro7 has it
+            let normalizedLabel = label.trimmingCharacters(in: .whitespaces)
+            if !normalizedLabel.isEmpty {
+                verseLookup[normalizedLabel] = SlideLocation(
+                    presentationUUID: presentationUUID,
+                    slideIndex: index
+                )
+                addedCount += 1
             }
-            remaining -= verseCount
         }
+
+        logger.info("ProPresentationMap: Loaded \(addedCount) slides for \(bookCode)")
+    }
+
+    /// Look up the Pro7 slide location for a verse reference.
+    /// Constructs the label string and searches for it in the map.
+    /// Returns nil if the book's slides haven't been loaded yet - caller should load them first.
+    func lookup(_ reference: BibleReference) -> SlideLocation? {
+        // Construct the label in the format Pro7 uses: "BookName Chapter:Verse"
+        let label = "\(reference.bookName) \(reference.chapter):\(reference.verseStart)"
+
+        if let location = verseLookup[label] {
+            return location
+        }
+
+        // Log detailed error for debugging
+        let bookLoaded = loadedBooks.contains(reference.bookCode)
+        logger.error("ProPresentationMap.lookup: FAILED - No slide for '\(label)'")
+        logger.error("  - bookCode: \(reference.bookCode), hasBook: \(bookPresentations[reference.bookCode] != nil), loaded: \(bookLoaded)")
+        logger.error("  - Total verses indexed: \(verseLookup.count)")
+
+        // Show similar labels in the map to help diagnose format mismatches
+        let bookPrefix = reference.bookName
+        let similarKeys = verseLookup.keys.filter { $0.hasPrefix(bookPrefix) }.sorted().prefix(5)
+        if !similarKeys.isEmpty {
+            logger.error("  - Similar labels in map: \(similarKeys.joined(separator: ", "))")
+        } else {
+            logger.error("  - No labels found starting with '\(bookPrefix)' — book slides may not have loaded")
+        }
+
         return nil
     }
 
-    /// Check if a book is registered.
+    /// Check if a book has been registered (has a presentation UUID).
     func hasBook(_ bookCode: String) -> Bool {
-        bookEntries[bookCode] != nil
+        bookPresentations[bookCode] != nil
     }
 
-    var isEmpty: Bool { bookEntries.isEmpty }
-    var count: Int { bookEntries.count }
+    /// Check if a book's slides have been loaded.
+    func isBookLoaded(_ bookCode: String) -> Bool {
+        loadedBooks.contains(bookCode)
+    }
+
+    /// Get the presentation UUID for a book (for lazy loading).
+    func presentationUUID(for bookCode: String) -> String? {
+        bookPresentations[bookCode]
+    }
+
+    var isEmpty: Bool { bookPresentations.isEmpty }
+    var count: Int { bookPresentations.count }
+    var loadedCount: Int { loadedBooks.count }
+    var totalVerses: Int { verseLookup.count }
 }

@@ -77,28 +77,36 @@ struct CapturePreviewPanelView: View {
 
                         // Also show detected verses that haven't been captured yet
                         ForEach(appState.detectedVerses.filter { !$0.status.isSaved }) { verse in
-                            HStack {
-                                Circle()
-                                    .fill(verse.status.dotColor)
-                                    .frame(width: 8, height: 8)
-                                Text(verse.reference.displayString)
-                                    .font(.caption)
-                                    .foregroundStyle(verse.status.isDuplicate ? .tertiary : .primary)
-                                Spacer()
-                                switch verse.status {
-                                case .capturing:
-                                    ProgressView()
-                                        .scaleEffect(0.5)
-                                case .duplicate:
-                                    Text("dup")
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack {
+                                    Circle()
+                                        .fill(verse.status.dotColor)
+                                        .frame(width: 8, height: 8)
+                                    Text(verse.reference.displayString)
+                                        .font(.caption)
+                                        .foregroundStyle(verse.status.isDuplicate ? .tertiary : .primary)
+                                    Spacer()
+                                    switch verse.status {
+                                    case .capturing:
+                                        ProgressView()
+                                            .scaleEffect(0.5)
+                                    case .duplicate:
+                                        Text("dup")
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    case .failed:
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundStyle(.red)
+                                    default:
+                                        EmptyView()
+                                    }
+                                }
+                                // Show error message directly for failed status
+                                if case .failed(let error) = verse.status {
+                                    Text(error)
                                         .font(.caption2)
-                                        .foregroundStyle(.tertiary)
-                                case .failed(let error):
-                                    Image(systemName: "xmark.circle.fill")
                                         .foregroundStyle(.red)
-                                        .help(error)
-                                default:
-                                    EmptyView()
+                                        .lineLimit(2)
                                 }
                             }
                         }
