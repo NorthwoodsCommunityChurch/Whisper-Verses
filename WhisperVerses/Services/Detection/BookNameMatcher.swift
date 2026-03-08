@@ -35,8 +35,10 @@ struct BookNameMatcher {
         var coveredRanges: [Range<String.Index>] = []
 
         for (name, book) in sortedNames {
-            // Skip very short aliases (< 2 chars) to reduce noise
-            guard name.count >= 2 else { continue }
+            // Skip very short aliases (< 3 chars) to reduce noise —
+            // 2-char aliases like "is" (Isaiah), "he" (Hebrews), "am" (Amos)
+            // match common English words and cause false positives in live transcription
+            guard name.count >= 3 else { continue }
 
             var searchStart = lowerText.startIndex
             while searchStart < lowerText.endIndex,
