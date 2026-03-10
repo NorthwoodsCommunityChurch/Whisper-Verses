@@ -42,7 +42,7 @@ struct MainView: View {
                 .keyboardShortcut("k", modifiers: [.command, .shift])
 
                 Button("Reset Whisper") {
-                    appState.resetWhisper()
+                    Task { await appState.resetWhisper() }
                 }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
             }

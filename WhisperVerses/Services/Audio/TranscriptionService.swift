@@ -134,10 +134,13 @@ final class TranscriptionService {
         }
     }
 
-    func stopListening() {
-        Task {
-            await streamTranscriber?.stopStreamTranscription()
-        }
+    func stopListening() async {
+        // Await the actor-isolated stop BEFORE nilling the transcriber.
+        // Previously this was in a fire-and-forget Task, which raced with
+        // streamTranscriber = nil — the Task would see nil and never call
+        // stopStreamTranscription(), leaving the audio tap installed.
+        // That orphaned tap caused a crash on next startListening().
+        await streamTranscriber?.stopStreamTranscription()
         transcriptionTask?.cancel()
         transcriptionTask = nil
         streamTranscriber = nil

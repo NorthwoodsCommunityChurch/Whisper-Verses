@@ -31,8 +31,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.northwoods.WhisperVerses
-        MARKETING_VERSION: "1.1.7"
-        CURRENT_PROJECT_VERSION: 8
+        MARKETING_VERSION: "1.1.8"
+        CURRENT_PROJECT_VERSION: 9
         INFOPLIST_FILE: WhisperVerses/Info.plist
         CODE_SIGN_ENTITLEMENTS: WhisperVerses/WhisperVerses.entitlements
         CODE_SIGN_IDENTITY: "-"

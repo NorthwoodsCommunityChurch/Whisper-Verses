@@ -280,7 +280,7 @@ final class AppState {
 
     func toggleListening() async {
         if isListening {
-            stopListening()
+            await stopListening()
         } else {
             await startListening()
         }
@@ -390,8 +390,11 @@ final class AppState {
             return
         }
 
-        // Stop our level monitoring to avoid AVAudioEngine conflicts with WhisperKit
+        // Stop our level monitoring to avoid AVAudioEngine conflicts with WhisperKit.
+        // The CoreAudio HAL doesn't release the input device instantly after engine.stop(),
+        // so we add a short delay to let it fully tear down before WhisperKit installs its tap.
         audioDeviceManager.stopLevelMonitoring()
+        try? await Task.sleep(nanoseconds: 200_000_000) // 200ms for HAL teardown
 
         await service.startListening()
 
@@ -460,18 +463,18 @@ final class AppState {
         saveSettings()
     }
 
-    func stopListening() {
+    func stopListening() async {
         hypothesisPollTask?.cancel()
         hypothesisPollTask = nil
-        transcriptionService?.stopListening()
+        await transcriptionService?.stopListening()
         isListening = false
         currentHypothesis = ""
         // Restart level monitoring now that WhisperKit's audio engine is stopped
         audioDeviceManager.startLevelMonitoring()
     }
 
-    func resetWhisper() {
-        stopListening()
+    func resetWhisper() async {
+        await stopListening()
         transcriptionService = nil
         confirmedSegments.removeAll()
         detectedVerses.removeAll()
