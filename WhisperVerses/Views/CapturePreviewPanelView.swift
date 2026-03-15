@@ -2,7 +2,7 @@ import SwiftUI
 
 struct CapturePreviewPanelView: View {
     @Environment(AppState.self) private var appState
-    @State private var selectedCapture: CapturedVerse?
+    @State private var selectedCaptureID: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -15,27 +15,62 @@ struct CapturePreviewPanelView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color.white.opacity(0.03))
 
-            Divider()
+            // Document import progress banner
+            if appState.documentImportStatus != .idle {
+                HStack(spacing: 6) {
+                    switch appState.documentImportStatus {
+                    case .parsing:
+                        ProgressView()
+                            .scaleEffect(0.5)
+                        Text("Parsing \(appState.lastImportedDocumentName ?? "document")...")
+                            .font(.caption)
+                    case .detecting:
+                        ProgressView()
+                            .scaleEffect(0.5)
+                        Text("Finding scripture references...")
+                            .font(.caption)
+                    case .capturing(let current, let total):
+                        ProgressView()
+                            .scaleEffect(0.5)
+                        Text("Capturing verse \(current) of \(total)...")
+                            .font(.caption)
+                    case .done(let count):
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Imported \(count) verses from \(appState.lastImportedDocumentName ?? "document")")
+                            .font(.caption)
+                    case .error(let message):
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                        Text(message)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    case .idle:
+                        EmptyView()
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 4)
+                .background(importBannerBackground(appState.documentImportStatus))
+
+                Divider()
+            }
 
             if appState.capturedImages.isEmpty && appState.detectedVerses.isEmpty {
-                Spacer()
-                VStack(spacing: 8) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 36))
-                        .foregroundStyle(.tertiary)
-                    Text("Detected verses will appear here")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                Spacer()
+                ContentUnavailableView(
+                    "No Captures Yet",
+                    systemImage: "photo.on.rectangle.angled",
+                    description: Text("Detected verses will appear here")
+                )
             } else {
                 VStack(spacing: 0) {
                     // Preview thumbnail of most recent or selected capture
-                    if let capture = selectedCapture ?? appState.capturedImages.last {
+                    if let capture = selectedCaptureID.flatMap({ id in appState.capturedImages.first { $0.id == id } }) ?? appState.capturedImages.last {
                         VStack(spacing: 4) {
                             if let image = NSImage(contentsOf: capture.imageURL) {
                                 Image(nsImage: image)
@@ -66,10 +101,7 @@ struct CapturePreviewPanelView: View {
                         .padding(.horizontal)
                         .padding(.top, 4)
 
-                    List(selection: Binding(
-                        get: { selectedCapture?.id },
-                        set: { id in selectedCapture = appState.capturedImages.first { $0.id == id } }
-                    )) {
+                    List(selection: $selectedCaptureID) {
                         ForEach(appState.capturedImages.reversed()) { capture in
                             CaptureRow(capture: capture)
                                 .tag(capture.id)
@@ -82,6 +114,7 @@ struct CapturePreviewPanelView: View {
                                     Circle()
                                         .fill(verse.status.dotColor)
                                         .frame(width: 8, height: 8)
+                                        .accessibilityHidden(true)
                                     Text(verse.reference.displayString)
                                         .font(.caption)
                                         .foregroundStyle(verse.status.isDuplicate ? .tertiary : .primary)
@@ -115,43 +148,15 @@ struct CapturePreviewPanelView: View {
                 }
             }
         }
-        .background(.background)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(Color.white.opacity(0.03))
     }
-}
 
-struct CaptureRow: View {
-    let capture: CapturedVerse
-
-    var body: some View {
-        HStack {
-            Circle()
-                .fill(.green)
-                .frame(width: 8, height: 8)
-            Text(capture.reference)
-                .font(.caption)
-            Spacer()
-            Text(capture.timestamp, style: .time)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-        }
-    }
-}
-
-/// Checkerboard background to visualize transparency in PNG previews
-struct CheckerboardView: View {
-    let size: CGFloat = 8
-
-    var body: some View {
-        Canvas { context, canvasSize in
-            let rows = Int(canvasSize.height / size) + 1
-            let cols = Int(canvasSize.width / size) + 1
-            for row in 0..<rows {
-                for col in 0..<cols {
-                    let isLight = (row + col) % 2 == 0
-                    let rect = CGRect(x: CGFloat(col) * size, y: CGFloat(row) * size, width: size, height: size)
-                    context.fill(Path(rect), with: .color(isLight ? .white : Color.gray.opacity(0.2)))
-                }
-            }
+    private func importBannerBackground(_ status: AppState.DocumentImportStatus) -> Color {
+        switch status {
+        case .error: return Color.red.opacity(0.1)
+        case .done: return Color.green.opacity(0.1)
+        default: return Color.accentColor.opacity(0.05)
         }
     }
 }

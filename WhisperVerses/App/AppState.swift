@@ -2,6 +2,7 @@ import CoreAudio
 import Foundation
 import os.log
 import SwiftUI
+import UniformTypeIdentifiers
 
 private let logger = Logger(subsystem: "com.whisperverses", category: "AppState")
 
@@ -71,6 +72,19 @@ final class AppState {
     var hyperDeckHost: String = ""
     var hyperDeckPort: UInt16 = 9993
     var isHyperDeckEnabled: Bool = false
+
+    // MARK: - Document Import
+    enum DocumentImportStatus: Equatable {
+        case idle
+        case parsing
+        case detecting
+        case capturing(current: Int, total: Int)
+        case done(count: Int)
+        case error(String)
+    }
+    var documentImportStatus: DocumentImportStatus = .idle
+    var lastImportedDocumentName: String?
+    @ObservationIgnored private var importStatusDismissTask: Task<Void, Never>?
 
     init() {
         loadSettings()
@@ -696,6 +710,111 @@ final class AppState {
                     self.detectedVerses[idx].status = .saved(filename: lastFilename)
                 }
             }
+        }
+    }
+
+    // MARK: - Document Import
+
+    func importDocument() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [
+            .plainText,
+            UTType("org.openxmlformats.wordprocessingml.document") ?? .data,
+        ]
+        panel.allowsMultipleSelection = false
+        panel.message = "Select a sermon manuscript or slide notes file"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        lastImportedDocumentName = url.lastPathComponent
+        Task { await processDocumentFile(url) }
+    }
+
+    func processDocumentFile(_ url: URL) async {
+        // Validate Pro7 is ready
+        guard isProPresenterConnected else {
+            documentImportStatus = .error("ProPresenter not connected")
+            scheduleImportStatusDismiss()
+            return
+        }
+        guard let indexer = presentationIndexer, !indexer.map.isEmpty else {
+            documentImportStatus = .error("Bible library not indexed")
+            scheduleImportStatusDismiss()
+            return
+        }
+
+        // 1. Parse document
+        documentImportStatus = .parsing
+
+        // Security-scoped access for drag-and-drop files
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
+        // File size check
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+           let size = attrs[.size] as? Int, size > 10_000_000 {
+            documentImportStatus = .error("File too large (max 10 MB)")
+            scheduleImportStatusDismiss()
+            return
+        }
+
+        let fileData: Data
+        do {
+            fileData = try Data(contentsOf: url)
+        } catch {
+            documentImportStatus = .error("Could not read file: \(error.localizedDescription)")
+            scheduleImportStatusDismiss()
+            return
+        }
+
+        let text: String?
+        if url.pathExtension.lowercased() == "docx" {
+            text = DocumentParser.parseDocx(fileData)
+        } else {
+            text = DocumentParser.parsePlainText(fileData)
+        }
+
+        guard let documentText = text, !documentText.isEmpty else {
+            documentImportStatus = .error("Could not extract text from document")
+            scheduleImportStatusDismiss()
+            return
+        }
+
+        // 2. Detect verses
+        documentImportStatus = .detecting
+        let detected = verseDetector.detect(in: documentText)
+
+        // 3. Dedup against already-captured verses
+        let previouslyDetectedKeys = Set(detectedVerses.map { $0.reference.displayString })
+        let newVerses = detected.filter { !previouslyDetectedKeys.contains($0.reference.displayString) }
+
+        if newVerses.isEmpty {
+            documentImportStatus = .done(count: 0)
+            scheduleImportStatusDismiss()
+            return
+        }
+
+        // 4. Add all new verses to the detected list
+        for verse in newVerses {
+            detectedVerses.append(verse)
+        }
+
+        // 5. Capture slides sequentially
+        let total = newVerses.count
+        for (index, verse) in newVerses.enumerated() {
+            documentImportStatus = .capturing(current: index + 1, total: total)
+            await captureVerseSlide(verse)
+        }
+
+        // 6. Done
+        documentImportStatus = .done(count: total)
+        scheduleImportStatusDismiss()
+    }
+
+    private func scheduleImportStatusDismiss() {
+        importStatusDismissTask?.cancel()
+        importStatusDismissTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard let self, !Task.isCancelled else { return }
+            await MainActor.run { self.documentImportStatus = .idle }
         }
     }
 }

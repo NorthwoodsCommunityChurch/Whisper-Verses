@@ -325,9 +325,13 @@ final class WebServer {
             // Check if session already exists
             if sharedSession != nil {
                 // Session already active - reject upload
-                let errorMsg = """
-                {"type":"error","message":"Session already active. Another manuscript is being followed.","filename":"\(sessionFilename ?? "")"}
-                """
+                let errorPayload: [String: Any] = [
+                    "type": "error",
+                    "message": "Session already active. Another manuscript is being followed.",
+                    "filename": sessionFilename ?? ""
+                ]
+                let errorData = try? JSONSerialization.data(withJSONObject: errorPayload)
+                let errorMsg = errorData.flatMap { String(data: $0, encoding: .utf8) } ?? "{\"type\":\"error\",\"message\":\"Session already active.\"}"
                 connection.sendWebSocketText(errorMsg)
                 logger.info("Rejected manuscript upload - session already active")
                 return

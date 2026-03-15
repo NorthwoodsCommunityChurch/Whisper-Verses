@@ -36,16 +36,17 @@ struct TranscriptPanelView: View {
                         Circle()
                             .fill(.red)
                             .frame(width: 8, height: 8)
+                            .shadow(color: .red.opacity(0.6), radius: 4)
                         Text("Listening")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .bold()
+                            .foregroundStyle(.red)
                     }
                 }
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-
-            Divider()
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color.white.opacity(0.03))
 
             // Transcript content - use LazyVStack for performance with many segments
             ScrollViewReader { proxy in
@@ -89,46 +90,24 @@ struct TranscriptPanelView: View {
 
             // Empty state
             if appState.confirmedSegments.isEmpty && appState.currentHypothesis.isEmpty {
-                Spacer()
-                VStack(spacing: 8) {
-                    Image(systemName: "waveform")
-                        .font(.system(size: 40))
-                        .foregroundStyle(.tertiary)
-                    Text(appState.isListening ? "Waiting for speech..." : "Press Start Listening to begin")
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                Spacer()
+                ContentUnavailableView(
+                    appState.isListening ? "Waiting for Speech" : "Not Listening",
+                    systemImage: "waveform",
+                    description: Text(appState.isListening ? "Listening for speech..." : "Press Start Listening to begin")
+                )
             }
         }
-        .background(.background)
-    }
-}
-
-struct TranscriptRow: View {
-    let segment: TranscriptSegment
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text(segment.formattedTime)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .monospacedDigit()
-                .frame(width: 40, alignment: .trailing)
-
-            if segment.detectedReferences.isEmpty {
-                Text(segment.text)
-                    .font(.body)
-                    .textSelection(.enabled)
-            } else {
-                // Highlight text containing verse references
-                Text(segment.text)
-                    .font(.body)
-                    .textSelection(.enabled)
-                    .padding(2)
-                    .background(Color.yellow.opacity(0.2), in: RoundedRectangle(cornerRadius: 3))
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(Color.white.opacity(0.03))
+        .overlay(alignment: .leading) {
+            // Red listening edge indicator
+            if appState.isListening {
+                Rectangle()
+                    .fill(Color.red.opacity(0.6))
+                    .frame(width: 3)
+                    .shadow(color: .red.opacity(0.4), radius: 6, x: 3)
             }
         }
-        .padding(.horizontal)
+        .animation(.easeInOut(duration: 0.3), value: appState.isListening)
     }
 }

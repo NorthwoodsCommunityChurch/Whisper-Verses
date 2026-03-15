@@ -4,6 +4,7 @@ import Sparkle
 @main
 struct WhisperVersesApp: App {
     @State private var appState = AppState()
+    @State private var showOnboarding = false
     private let updaterController: SPUStandardUpdaterController
 
     init() {
@@ -19,12 +20,14 @@ struct WhisperVersesApp: App {
             MainView()
                 .environment(appState)
                 .frame(minWidth: 900, minHeight: 600)
-                .sheet(isPresented: .init(
-                    get: { !appState.hasCompletedOnboarding },
-                    set: { if !$0 { appState.completeOnboarding() } }
-                )) {
+                .preferredColorScheme(.dark)
+                .onAppear { showOnboarding = !appState.hasCompletedOnboarding }
+                .sheet(isPresented: $showOnboarding) {
                     OnboardingView()
                         .environment(appState)
+                }
+                .onChange(of: appState.hasCompletedOnboarding) { _, completed in
+                    if completed { showOnboarding = false }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
                     appState.saveSettings()
@@ -36,33 +39,11 @@ struct WhisperVersesApp: App {
                 CheckForUpdatesView(updater: updaterController.updater)
             }
         }
-    }
-}
 
-/// SwiftUI view for the "Check for Updates..." menu item
-struct CheckForUpdatesView: View {
-    @ObservedObject private var checkForUpdatesViewModel: CheckForUpdatesViewModel
-    private let updater: SPUUpdater
-
-    init(updater: SPUUpdater) {
-        self.updater = updater
-        self.checkForUpdatesViewModel = CheckForUpdatesViewModel(updater: updater)
-    }
-
-    var body: some View {
-        Button("Check for Updates...") {
-            updater.checkForUpdates()
+        Settings {
+            SettingsView()
+                .environment(appState)
+                .preferredColorScheme(.dark)
         }
-        .disabled(!checkForUpdatesViewModel.canCheckForUpdates)
-    }
-}
-
-/// View model to observe Sparkle's canCheckForUpdates state
-final class CheckForUpdatesViewModel: ObservableObject {
-    @Published var canCheckForUpdates = false
-
-    init(updater: SPUUpdater) {
-        updater.publisher(for: \.canCheckForUpdates)
-            .assign(to: &$canCheckForUpdates)
     }
 }

@@ -195,6 +195,7 @@ enum DocumentParser {
 
     /// Decompress deflate data
     private static func decompress(_ data: Data, expectedSize: Int) -> Data? {
+        guard expectedSize > 0, expectedSize < 50_000_000 else { return nil }
         var decompressed = Data(count: expectedSize)
 
         let result = decompressed.withUnsafeMutableBytes { destPtr in
