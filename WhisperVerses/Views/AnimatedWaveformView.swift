@@ -7,6 +7,7 @@ struct AnimatedWaveformView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var barOffsets: [Double] = [0, 0.2, 0.4, 0.1, 0.3]
     @State private var animationPhase: Double = 0
+    @State private var animationTimer: Timer?
 
     private let barCount = 5
 
@@ -50,16 +51,37 @@ struct AnimatedWaveformView: View {
                 .animation(.spring(response: 0.15, dampingFraction: 0.7), value: normalizedLevel)
                 .animation(.spring(response: 0.15, dampingFraction: 0.7), value: animationPhase)
             }
-            .onChange(of: level) { _, _ in
-                if isActive {
-                    // Vary bar offsets slightly for organic feel
-                    animationPhase += 1
-                    for i in 0..<barCount {
-                        barOffsets[i] = Double.random(in: -0.15...0.15)
-                    }
+            .onChange(of: isActive) { _, active in
+                if active {
+                    startAnimationTimer()
+                } else {
+                    stopAnimationTimer()
                 }
             }
+            .onAppear {
+                if isActive {
+                    startAnimationTimer()
+                }
+            }
+            .onDisappear {
+                stopAnimationTimer()
+            }
         }
+    }
+
+    private func startAnimationTimer() {
+        stopAnimationTimer()
+        animationTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
+            animationPhase += 1
+            for i in 0..<barCount {
+                barOffsets[i] = Double.random(in: -0.15...0.15)
+            }
+        }
+    }
+
+    private func stopAnimationTimer() {
+        animationTimer?.invalidate()
+        animationTimer = nil
     }
 
     private func barHeight(for index: Int, in maxHeight: Double) -> Double {
