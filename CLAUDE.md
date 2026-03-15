@@ -72,22 +72,23 @@ open build/Build/Products/Release/WhisperVerses.app
 
 ## Deployment
 
-### Production Machine (10.10.11.112)
+### Production Machine — RUBI (10.10.11.80)
 - **User:** `mediaadmin`
 - **SSH key:** `~/.ssh/id_ed25519`
-- **App location:** `/Applications/WhisperVerses.app`
+- **App location:** `/Applications/Canopy/WhisperVerses.app`
+- **Audio input:** Dante Virtual Soundcard (4 channels, 48kHz) — requires WhisperKit fork with multi-channel fallback
+- **ProPresenter 7:** Running on separate machine at 10.10.11.77:52554
 - **Deploy workflow:**
   ```bash
   # Kill running app and remove old bundle (rsync fails due to OneDrive xattrs)
-  ssh -i ~/.ssh/id_ed25519 mediaadmin@10.10.11.112 "pkill -x WhisperVerses; sleep 1; rm -rf /Applications/WhisperVerses.app"
+  ssh -i ~/.ssh/id_ed25519 mediaadmin@10.10.11.80 "pkill -x WhisperVerses; sleep 1; rm -rf '/Applications/Canopy/WhisperVerses.app'"
   # Copy new build
-  scp -r -i ~/.ssh/id_ed25519 "build/Build/Products/Release/WhisperVerses.app" mediaadmin@10.10.11.112:/Applications/WhisperVerses.app
+  scp -r -i ~/.ssh/id_ed25519 "build/Build/Products/Release/WhisperVerses.app" "mediaadmin@10.10.11.80:/Applications/Canopy/WhisperVerses.app"
   # Launch
-  ssh -i ~/.ssh/id_ed25519 mediaadmin@10.10.11.112 "open /Applications/WhisperVerses.app"
+  ssh -i ~/.ssh/id_ed25519 mediaadmin@10.10.11.80 "open '/Applications/Canopy/WhisperVerses.app'"
   ```
 - **IMPORTANT:** Do NOT use rsync — OneDrive extended attributes cause silent failures where the binary doesn't update. Always `rm -rf` then `scp -r`.
-- This machine runs ProPresenter 7 locally (127.0.0.1:1025)
-- Console.app on that machine shows diagnostic logs (filter: "whisperverses")
+- Debug log: `/tmp/whisper_debug.log` on RUBI (audio processor RMS, VAD state, transcription errors)
 
 ## Key Files
 

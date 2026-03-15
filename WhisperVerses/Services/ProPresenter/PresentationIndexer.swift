@@ -129,12 +129,18 @@ final class PresentationIndexer {
             var lastError: Error? = nil
             for attempt in 1...3 {
                 do {
-                    logger.info("PresentationIndexer: Loading slides for \(bookCode) (attempt \(attempt)/3)...")
+                    let msg = "[Pro7] Loading slides for \(bookCode) uuid=\(uuid.prefix(8))... (attempt \(attempt)/3)"
+                    logger.info("\(msg)")
+                    ThreadSafeAudioProcessor.appendToDebugLog(msg + "\n")
                     slides = try await api.getPresentationSlides(presentationUUID: uuid)
+                    ThreadSafeAudioProcessor.appendToDebugLog("[Pro7] Loaded \(slides?.count ?? 0) slides for \(bookCode)\n")
                     break
                 } catch {
                     lastError = error
-                    logger.warning("PresentationIndexer: Attempt \(attempt) failed for \(bookCode): \(error.localizedDescription)")
+                    let errorDesc = Self.describeError(error)
+                    let msg = "[Pro7] Attempt \(attempt) FAILED for \(bookCode): \(errorDesc)"
+                    logger.warning("\(msg)")
+                    ThreadSafeAudioProcessor.appendToDebugLog(msg + "\n")
                     if attempt < 3 {
                         try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
                     }
@@ -142,7 +148,10 @@ final class PresentationIndexer {
             }
 
             guard let loadedSlides = slides else {
-                logger.error("PresentationIndexer: All 3 attempts failed for \(bookCode): \(lastError?.localizedDescription ?? "unknown")")
+                let errorDesc = Self.describeError(lastError)
+                let msg = "[Pro7] All 3 attempts FAILED for \(bookCode): \(errorDesc)"
+                logger.error("\(msg)")
+                ThreadSafeAudioProcessor.appendToDebugLog(msg + "\n")
                 return nil
             }
 
@@ -190,6 +199,23 @@ final class PresentationIndexer {
 
         return nsName.substring(with: match.range(at: 1))
             .trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Produce a detailed error description including the error type, domain, and code
+    /// so we can diagnose transient failures from the debug log on remote machines.
+    private static func describeError(_ error: Error?) -> String {
+        guard let error else { return "unknown (nil)" }
+        let nsError = error as NSError
+        var parts: [String] = []
+        parts.append("type=\(type(of: error))")
+        parts.append("domain=\(nsError.domain)")
+        parts.append("code=\(nsError.code)")
+        parts.append("desc=\(error.localizedDescription)")
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
+            let nsUnderlying = underlying as NSError
+            parts.append("underlying=\(nsUnderlying.domain)/\(nsUnderlying.code): \(underlying.localizedDescription)")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func setError(_ message: String) async {

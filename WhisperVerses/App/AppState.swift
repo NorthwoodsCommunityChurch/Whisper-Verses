@@ -404,13 +404,10 @@ final class AppState {
             return
         }
 
-        // Stop our level monitoring to avoid AVAudioEngine conflicts with WhisperKit.
-        // The CoreAudio HAL doesn't release the input device instantly after engine.stop(),
-        // so we add a short delay to let it fully tear down before WhisperKit installs its tap.
-        audioDeviceManager.stopLevelMonitoring()
-        try? await Task.sleep(nanoseconds: 200_000_000) // 200ms for HAL teardown
-
         await service.startListening()
+
+        // Stop level monitoring after WhisperKit has started (it handles coexistence)
+        audioDeviceManager.stopLevelMonitoring()
 
         await MainActor.run {
             self.isListening = service.isListening
@@ -618,6 +615,8 @@ final class AppState {
                 errorDetail = "Verse '\(firstRef.displayString)' not found in Pro7"
             }
 
+            ThreadSafeAudioProcessor.appendToDebugLog("[Capture] FAILED \(firstRef.displayString): \(errorDetail) (mapCount=\(mapInfo.0), bookLoaded=\(mapInfo.1))\n")
+
             // Keep keys in set so we don't retry failed captures repeatedly
             // (user can click "Clear Folders" to reset)
             await MainActor.run {
@@ -653,6 +652,7 @@ final class AppState {
                 // Keep keys in set so we don't retry failed captures repeatedly
                 // (user can click "Clear Folders" to reset)
                 let errorMsg = "\(error.localizedDescription) (slide \(location.slideIndex))"
+                ThreadSafeAudioProcessor.appendToDebugLog("[Capture] Image fetch FAILED for \(ref.displayString) slide=\(location.slideIndex): \(error)\n")
                 await MainActor.run {
                     if let idx = self.detectedVerses.firstIndex(where: { $0.id == verse.id }) {
                         self.detectedVerses[idx].status = .failed(error: errorMsg)
@@ -690,6 +690,7 @@ final class AppState {
 
             await MainActor.run {
                 logger.info("captureVerseSlide: CAPTURED '\(ref.displayString)'")
+                ThreadSafeAudioProcessor.appendToDebugLog("[Capture] OK \(ref.displayString) → \(lastFilename)\n")
                 // Note: capturedVerseKeys already updated before capture started (race condition fix)
                 if let fileURL = firstFileURL {
                     self.capturedImages.append(CapturedVerse(
