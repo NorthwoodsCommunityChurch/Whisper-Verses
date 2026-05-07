@@ -21,8 +21,9 @@ struct SlideImageCapture {
             quality: 1920
         )
 
-        // 2. Convert to PNG (handles both TIFF and JPEG source formats)
-        guard let pngData = ImageConverter.toPNG(imageData) else {
+        // 2. Convert to PNG and key out the magenta chroma background.
+        // Pro7 template must be set to pure magenta (#FF00FF) for this to produce alpha.
+        guard let pngData = ImageConverter.keyOutMagenta(imageData) else {
             throw CaptureError.conversionFailed
         }
 
@@ -46,8 +47,9 @@ struct SlideImageCapture {
             quality: 1920
         )
 
-        // 2. Convert to PNG (handles both TIFF and JPEG source formats)
-        guard let pngData = ImageConverter.toPNG(imageData) else {
+        // 2. Convert to PNG and key out the magenta chroma background.
+        // Pro7 template must be set to pure magenta (#FF00FF) for this to produce alpha.
+        guard let pngData = ImageConverter.keyOutMagenta(imageData) else {
             throw CaptureError.conversionFailed
         }
 

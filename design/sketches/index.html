@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Whisper Verses — Design Mockup</title>
+<style>
+:root {
+  /* Northwoods brand */
+  --brand-blue:        #004C97;  /* Pantone 2945 — primary, full-bleed only on dark */
+  --brand-light-blue:  #009CDE;  /* Pantone 292 — accent on dark, WCAG AA safe */
+  --brand-navy:        #002855;  /* Pantone 295 */
+  --brand-gold:        #F1BE48;  /* Pantone 142 */
+  --brand-green:       #86AD3F;  /* Pantone 4212 */
+  --brand-coral:       #FF6D6A;  /* Pantone 2345 */
+  --brand-black:       #2D2926;  /* warm black — never #000 */
+
+  /* Surface tiers, all derived from warm black */
+  --surface-window:    #1B1815;
+  --surface-panel:     #221F1B;
+  --surface-card:      #2D2926;
+  --surface-card-hi:   #3A3631;
+
+  /* Foreground tiers */
+  --fg-primary:        #F2EEE8;
+  --fg-secondary:      #B5AFA6;
+  --fg-tertiary:       #6E6862;
+
+  /* Spacing */
+  --sp-tight: 4px;
+  --sp-small: 8px;
+  --sp-med:   12px;
+  --sp-lg:    16px;
+  --sp-xl:    24px;
+  --sp-xxl:   36px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: #0F0D0B;
+  color: var(--fg-primary);
+  font-family: "Myriad Pro", "Helvetica Neue", -apple-system, system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: var(--sp-xxl);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1.preview-title {
+  font-size: 11px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  font-weight: 900;
+  color: var(--fg-secondary);
+  margin: var(--sp-xxl) 0 var(--sp-med) 0;
+  border-bottom: 2px solid var(--brand-blue);
+  padding-bottom: var(--sp-tight);
+  display: inline-block;
+}
+h1.preview-title:first-child { margin-top: 0; }
+.preview-caption {
+  color: var(--fg-tertiary);
+  font-size: 12px;
+  margin-bottom: var(--sp-lg);
+  max-width: 700px;
+}
+
+/* ===== Window frame ===== */
+.window {
+  width: 1100px;
+  height: 660px;
+  background: var(--surface-window);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 30px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  display: grid;
+  grid-template-rows: 38px 1fr;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ===== Chrome bar ===== */
+.chrome {
+  background: var(--surface-panel);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-med);
+  gap: var(--sp-med);
+}
+.traffic { display: flex; gap: 6px; margin-right: var(--sp-med); }
+.traffic span {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+}
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+.marker {
+  width: 14px; height: 18px;
+  display: inline-block;
+}
+
+.chrome-status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-small);
+  font-size: 11px;
+  color: var(--fg-secondary);
+  margin-left: var(--sp-lg);
+}
+.led { width: 8px; height: 8px; border-radius: 50%; }
+.led.green  { background: var(--brand-green);  box-shadow: 0 0 6px var(--brand-green); }
+.led.coral  { background: var(--brand-coral);  box-shadow: 0 0 8px var(--brand-coral); animation: pulse 1.4s ease-in-out infinite; }
+.led.offline{ background: #3A3631; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.55; box-shadow: 0 0 4px var(--brand-coral); }
+  50%      { opacity: 1.0;  box-shadow: 0 0 14px var(--brand-coral); }
+}
+
+.live-clock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--brand-coral);
+  font-feature-settings: "tnum" 1;
+  margin-left: auto;
+}
+.chrome-spacer { flex: 1; }
+.chrome-actions {
+  display: flex; gap: var(--sp-med);
+  margin-left: var(--sp-lg);
+}
+.chrome-btn {
+  font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700;
+  color: var(--fg-secondary);
+  background: none; border: none; padding: 4px 6px; cursor: pointer;
+}
+.chrome-btn:hover { color: var(--brand-light-blue); }
+
+/* ===== Body grid ===== */
+.body {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  height: 100%;
+  background: var(--surface-window);
+}
+
+/* ----- Transcript panel ----- */
+.transcript {
+  background: var(--surface-panel);
+  position: relative;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.tally-bar {
+  position: absolute; top: 0; left: 0; bottom: 0;
+  width: 3px;
+  background: var(--brand-coral);
+  box-shadow: 4px 0 14px rgba(255,109,106,0.45);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.section-header {
+  display: flex; align-items: center; gap: var(--sp-small);
+  padding: var(--sp-med) var(--sp-lg) var(--sp-small) var(--sp-lg);
+  font-size: 10px; letter-spacing: 1.8px; text-transform: uppercase; font-weight: 900;
+  color: var(--fg-secondary);
+}
+.section-header::before {
+  content: "";
+  display: inline-block;
+  width: 14px; height: 2px;
+  background: var(--brand-blue);
+  margin-right: 4px;
+}
+
+.transcript-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-small) var(--sp-lg) var(--sp-xl) var(--sp-xl);
+  display: flex; flex-direction: column; gap: var(--sp-lg);
+}
+.t-row {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: var(--sp-med);
+  align-items: start;
+}
+.t-time {
+  font-size: 11px; letter-spacing: 0.5px;
+  color: var(--fg-tertiary);
+  font-weight: 900;
+  font-feature-settings: "tnum" 1;
+  padding-top: 2px;
+}
+.t-text { font-size: 14px; color: var(--fg-primary); line-height: 1.5; }
+.t-hyp .t-text { color: var(--fg-secondary); font-style: italic; }
+.verse-token {
+  background: rgba(0,156,222,0.13);
+  color: var(--brand-light-blue);
+  border-left: 2px solid var(--brand-light-blue);
+  padding: 0 6px 0 6px;
+  font-weight: 700;
+  border-radius: 1px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+/* ----- Right column ----- */
+.right {
+  background: var(--surface-window);
+  border-left: 1px solid rgba(255,255,255,0.04);
+  display: flex; flex-direction: column;
+}
+.opts {
+  padding: var(--sp-lg);
+  display: flex; flex-direction: column; gap: var(--sp-med);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.opts-row { display: flex; flex-direction: column; gap: 4px; }
+.opts-label {
+  font-size: 9px; letter-spacing: 1.8px; text-transform: uppercase; font-weight: 900;
+  color: var(--fg-tertiary);
+}
+.device-row { display: flex; gap: var(--sp-small); align-items: center; }
+.device-pill {
+  flex: 1;
+  background: var(--surface-card);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.device-pill::after { content: "▾"; font-size: 9px; color: var(--fg-tertiary); }
+.audio-meter {
+  display: flex; gap: 2px; align-items: flex-end;
+  height: 18px; width: 80px;
+}
+.audio-meter span {
+  width: 4px;
+  background: var(--brand-light-blue);
+  border-radius: 1px;
+}
+.gain-row { display: flex; align-items: center; gap: var(--sp-small); }
+.gain-track {
+  flex: 1; height: 4px; border-radius: 2px;
+  background: var(--surface-card);
+  position: relative;
+}
+.gain-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 35%;
+  background: var(--brand-light-blue);
+  border-radius: 2px;
+}
+.gain-thumb {
+  position: absolute; top: 50%;
+  width: 12px; height: 12px;
+  background: var(--brand-light-blue);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 3px rgba(0,156,222,0.18);
+}
+.gain-readout {
+  font-size: 11px; font-weight: 900;
+  color: var(--fg-secondary);
+  font-feature-settings: "tnum" 1;
+  min-width: 32px; text-align: right;
+}
+
+/* ----- Catch feed ----- */
+.feed {
+  flex: 1;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.feed-header {
+  display: flex; align-items: center;
+  padding: var(--sp-med) var(--sp-lg) var(--sp-small) var(--sp-lg);
+}
+.feed-header-label {
+  font-size: 10px; letter-spacing: 1.8px; text-transform: uppercase; font-weight: 900;
+  color: var(--fg-secondary);
+  display: flex; align-items: center; gap: var(--sp-small);
+}
+.feed-header-label::before {
+  content: ""; display: inline-block;
+  width: 14px; height: 2px; background: var(--brand-blue);
+}
+.feed-count {
+  margin-left: auto;
+  background: var(--brand-blue);
+  color: white;
+  font-weight: 900;
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-feature-settings: "tnum" 1;
+}
+.feed-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 var(--sp-lg) var(--sp-lg) var(--sp-lg);
+  display: flex; flex-direction: column; gap: var(--sp-small);
+}
+
+/* ----- Verse tile (THE signature element) ----- */
+.tile {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  height: 60px;
+  background: var(--surface-card);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04);
+}
+.tile-num {
+  background: var(--brand-blue);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: -1px;
+  font-feature-settings: "tnum" 1;
+}
+.tile-num.gold {
+  background: var(--brand-gold);
+  color: var(--brand-black);
+  animation: flash 0.6s ease-out;
+}
+@keyframes flash {
+  0%   { background: var(--brand-gold); }
+  100% { background: var(--brand-blue); }
+}
+.tile-body {
+  display: grid;
+  grid-template-columns: 1fr 90px;
+  gap: var(--sp-small);
+  padding: 8px 10px;
+  align-items: center;
+}
+.tile-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tile-ref {
+  font-weight: 900; font-size: 12px;
+  color: var(--fg-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tile-meta {
+  font-size: 10px;
+  color: var(--fg-tertiary);
+  letter-spacing: 0.4px;
+  display: flex; align-items: center; gap: 4px;
+  font-feature-settings: "tnum" 1;
+}
+.tile-meta .check { color: var(--brand-green); font-weight: 900; }
+.tile-thumb {
+  height: 44px;
+  background: linear-gradient(180deg, #5a4a35 0%, #2a1f15 100%);
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.tile-thumb::after {
+  content: "";
+  position: absolute; left: 8px; right: 8px;
+  top: 35%; bottom: 35%;
+  background: rgba(244,246,228,0.95);
+  border-radius: 1px;
+}
+
+/* tile that's pending (next-up indicator) */
+.tile.next .tile-num {
+  background: transparent;
+  color: var(--brand-light-blue);
+  border: 2px solid var(--brand-light-blue);
+}
+.tile.next .tile-meta::before {
+  /* pointer symbol — Northwoods brand device */
+  content: "▸"; color: var(--brand-light-blue); font-weight: 900;
+}
+
+/* ===== Empty / hero states ===== */
+.hero {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: var(--sp-xl);
+  padding: var(--sp-xxl);
+}
+.hero-rings {
+  width: 140px; height: 140px;
+  position: relative;
+}
+.hero-rings .ring {
+  position: absolute; inset: 0;
+  border: 1.5px solid rgba(255,255,255,0.08);
+  border-radius: 50%;
+}
+.hero-rings .ring.r2 { inset: 18px; }
+.hero-rings .ring.r3 { inset: 38px; }
+.hero-rings .ring.r4 { inset: 56px; border-color: rgba(0,156,222,0.4); }
+.hero-rings .core {
+  position: absolute;
+  inset: 64px;
+  background: var(--brand-light-blue);
+  border-radius: 50%;
+  box-shadow: 0 0 24px var(--brand-light-blue);
+}
+.hero-headline {
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  font-weight: 900;
+  color: var(--fg-secondary);
+  text-align: center;
+}
+.hero-sub {
+  color: var(--fg-tertiary);
+  font-size: 13px;
+  text-align: center;
+  max-width: 320px;
+}
+
+.listen-btn {
+  background: var(--brand-blue);
+  color: white;
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border: none;
+  padding: 18px 44px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex; align-items: center; gap: var(--sp-med);
+  box-shadow: 0 6px 0 var(--brand-navy), 0 14px 28px rgba(0,76,151,0.35);
+  transform: translateY(0);
+  transition: transform 80ms, box-shadow 80ms;
+}
+.listen-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 7px 0 var(--brand-navy), 0 16px 32px rgba(0,76,151,0.4);
+}
+.listen-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 var(--brand-navy), 0 6px 12px rgba(0,76,151,0.3);
+}
+.listen-btn .glyph {
+  width: 0; height: 0;
+  border-left: 12px solid white;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+}
+.listen-shortcut {
+  font-size: 10px; letter-spacing: 1.2px;
+  color: var(--fg-tertiary);
+  margin-top: var(--sp-small);
+}
+
+/* Empty catch feed */
+.feed-empty {
+  display: flex; flex-direction: column; gap: var(--sp-small);
+  padding: var(--sp-med);
+  align-items: center;
+}
+.feed-empty .ghost {
+  width: 100%; height: 60px;
+  border: 1px dashed rgba(255,255,255,0.06);
+  border-radius: 4px;
+  display: grid;
+  grid-template-columns: 60px 1fr;
+}
+.feed-empty .ghost::before {
+  content: ""; background: rgba(0,76,151,0.07);
+}
+.feed-empty .label {
+  font-size: 12px;
+  color: var(--fg-tertiary);
+  text-align: center;
+  margin-top: var(--sp-small);
+  max-width: 240px;
+}
+
+/* ===== Disconnected state ===== */
+.disco-hero {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--sp-xl);
+  text-align: center;
+  padding: var(--sp-xxl);
+}
+.disco-illustration {
+  display: flex; gap: var(--sp-med);
+}
+.disco-slide {
+  width: 60px; height: 80px;
+  background: var(--surface-card);
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.06);
+  position: relative;
+}
+.disco-slide.broken {
+  border-color: var(--brand-coral);
+  background: var(--surface-card);
+}
+.disco-slide.broken::before, .disco-slide.broken::after {
+  content: "";
+  position: absolute;
+  left: 14px; right: 14px; top: 50%;
+  height: 2px;
+  background: var(--brand-coral);
+  transform-origin: center;
+}
+.disco-slide.broken::before { transform: translateY(-50%) rotate(45deg); }
+.disco-slide.broken::after  { transform: translateY(-50%) rotate(-45deg); }
+
+.disco-headline {
+  font-size: 13px; letter-spacing: 2px; text-transform: uppercase; font-weight: 900;
+  color: var(--brand-coral);
+}
+.disco-detail {
+  font-size: 12px; color: var(--fg-secondary); font-feature-settings: "tnum" 1;
+}
+.retry-btn {
+  background: var(--brand-blue);
+  color: white;
+  font-weight: 900; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+  border: none; padding: 12px 28px; border-radius: 3px; cursor: pointer;
+  box-shadow: 0 4px 0 var(--brand-navy);
+}
+.disco-link {
+  background: none; border: none;
+  color: var(--brand-light-blue);
+  font-size: 11px; letter-spacing: 1px;
+  cursor: pointer;
+  margin-top: var(--sp-small);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+/* annotations / labels above each preview */
+.preview-label {
+  display: inline-block;
+  background: var(--brand-blue);
+  color: white;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  font-weight: 900;
+  padding: 3px 8px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+</style>
+</head>
+<body>
+
+<div style="max-width:1200px; margin: 0 auto;">
+
+<h1 class="preview-title">Whisper Verses — design preview</h1>
+<p class="preview-caption">Three surfaces: idle (first impression), live (the demo moment), and Pro7-disconnected (error as hero). Brand colors are real Pantone hex; fonts emulate Myriad Pro / Minion Pro via system fallbacks. The signature element — full-bleed brand-blue numbered tiles — appears in the catch feed.</p>
+
+<!-- ============== IDLE STATE ============== -->
+<div><span class="preview-label">A · Idle / first impression</span></div>
+<div class="window">
+  <div class="chrome">
+    <div class="traffic"><span></span><span></span><span></span></div>
+    <div class="wordmark">
+      <svg class="marker" viewBox="0 0 14 18" fill="none">
+        <path d="M7 0 C3 0 0 3 0 7 C0 11 7 18 7 18 C7 18 14 11 14 7 C14 3 11 0 7 0 Z" fill="#009CDE"/>
+        <circle cx="7" cy="7" r="3.5" fill="#1B1815"/>
+        <path d="M7 4.5 v5 M4.5 7 h5" stroke="#009CDE" stroke-width="0.9"/>
+      </svg>
+      WHISPER VERSES
+    </div>
+    <div class="chrome-status">
+      <span class="led green"></span> Pro7 · 66/66 books
+    </div>
+    <div class="chrome-spacer"></div>
+    <div class="chrome-actions">
+      <button class="chrome-btn">Pick Verse</button>
+      <button class="chrome-btn">Import</button>
+      <button class="chrome-btn">Settings</button>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="transcript">
+      <div class="hero">
+        <div class="hero-rings">
+          <div class="ring r1"></div>
+          <div class="ring r2"></div>
+          <div class="ring r3"></div>
+          <div class="ring r4"></div>
+          <div class="core"></div>
+        </div>
+        <div>
+          <div class="hero-headline">Ready to Listen</div>
+          <div class="hero-sub" style="margin-top: 8px;">Whisper Verses will catch every Bible reference the speaker reads or quotes, and pre-load its slide into ProPresenter.</div>
+        </div>
+        <button class="listen-btn">
+          <span class="glyph"></span>
+          Listen
+        </button>
+        <div class="listen-shortcut">⌘L</div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="opts">
+        <div class="opts-row">
+          <div class="opts-label">Audio Input</div>
+          <div class="device-row">
+            <div class="device-pill"><span>Audio Loop · 48kHz</span></div>
+            <div class="audio-meter">
+              <span style="height: 20%"></span>
+              <span style="height: 35%"></span>
+              <span style="height: 50%"></span>
+              <span style="height: 30%"></span>
+              <span style="height: 25%"></span>
+              <span style="height: 40%"></span>
+            </div>
+          </div>
+        </div>
+        <div class="opts-row">
+          <div class="opts-label">Input Gain</div>
+          <div class="gain-row">
+            <div class="gain-track">
+              <div class="gain-fill"></div>
+              <div class="gain-thumb" style="left: 35%"></div>
+            </div>
+            <div class="gain-readout">1.0×</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feed">
+        <div class="feed-header">
+          <div class="feed-header-label">Catch Feed</div>
+          <div class="feed-count">0</div>
+        </div>
+        <div class="feed-empty" style="padding: var(--sp-lg); flex: 1; justify-content: flex-start;">
+          <div class="ghost"></div>
+          <div class="ghost" style="opacity: 0.6;"></div>
+          <div class="ghost" style="opacity: 0.3;"></div>
+          <div class="label">Detected verses will appear here as the sermon progresses.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== LIVE STATE ============== -->
+<div style="margin-top: var(--sp-xxl);"><span class="preview-label">B · Live / capturing — the demo moment</span></div>
+<div class="window">
+  <div class="chrome">
+    <div class="traffic"><span></span><span></span><span></span></div>
+    <div class="wordmark">
+      <svg class="marker" viewBox="0 0 14 18" fill="none">
+        <path d="M7 0 C3 0 0 3 0 7 C0 11 7 18 7 18 C7 18 14 11 14 7 C14 3 11 0 7 0 Z" fill="#009CDE"/>
+        <circle cx="7" cy="7" r="3.5" fill="#1B1815"/>
+        <path d="M7 4.5 v5 M4.5 7 h5" stroke="#009CDE" stroke-width="0.9"/>
+      </svg>
+      WHISPER VERSES
+    </div>
+    <div class="chrome-status">
+      <span class="led green"></span> Pro7 · 66/66
+    </div>
+    <div class="live-clock">
+      <span class="led coral"></span> LIVE · 00:04:12
+    </div>
+    <div class="chrome-actions">
+      <button class="chrome-btn">Pick Verse</button>
+      <button class="chrome-btn">Stop ⌘L</button>
+      <button class="chrome-btn">Settings</button>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="transcript">
+      <div class="tally-bar"></div>
+      <div class="section-header">Transcript</div>
+      <div class="transcript-body">
+        <div class="t-row">
+          <div class="t-time">10:14:22</div>
+          <div class="t-text">...so when Paul writes in <span class="verse-token">2 Corinthians 5:17</span>, he's saying the believer is now a new creation — the old has gone, the new is here.</div>
+        </div>
+        <div class="t-row">
+          <div class="t-time">10:13:55</div>
+          <div class="t-text">...turn with me to <span class="verse-token">Romans 8:28</span>, this is one of those verses you'll come back to your whole life.</div>
+        </div>
+        <div class="t-row">
+          <div class="t-time">10:11:09</div>
+          <div class="t-text">...the heart of the gospel as it stands in <span class="verse-token">John 3:16</span> — for God so loved the world.</div>
+        </div>
+        <div class="t-row t-hyp">
+          <div class="t-time">···</div>
+          <div class="t-text">and if you'll open with me to first peter chapter</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="opts">
+        <div class="opts-row">
+          <div class="opts-label">Audio Input</div>
+          <div class="device-row">
+            <div class="device-pill"><span>Audio Loop · 48kHz</span></div>
+            <div class="audio-meter">
+              <span style="height: 30%"></span>
+              <span style="height: 50%"></span>
+              <span style="height: 75%"></span>
+              <span style="height: 90%"></span>
+              <span style="height: 65%"></span>
+              <span style="height: 40%"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feed">
+        <div class="feed-header">
+          <div class="feed-header-label">Catch Feed</div>
+          <div class="feed-count">3</div>
+        </div>
+        <div class="feed-list">
+          <div class="tile">
+            <div class="tile-num gold">03</div>
+            <div class="tile-body">
+              <div class="tile-text">
+                <div class="tile-ref">2 Corinthians 5:17</div>
+                <div class="tile-meta"><span class="check">✓</span> 10:14:22 · saved</div>
+              </div>
+              <div class="tile-thumb"></div>
+            </div>
+          </div>
+          <div class="tile">
+            <div class="tile-num">02</div>
+            <div class="tile-body">
+              <div class="tile-text">
+                <div class="tile-ref">Romans 8:28</div>
+                <div class="tile-meta"><span class="check">✓</span> 10:13:55 · saved</div>
+              </div>
+              <div class="tile-thumb"></div>
+            </div>
+          </div>
+          <div class="tile">
+            <div class="tile-num">01</div>
+            <div class="tile-body">
+              <div class="tile-text">
+                <div class="tile-ref">John 3:16</div>
+                <div class="tile-meta"><span class="check">✓</span> 10:11:09 · saved</div>
+              </div>
+              <div class="tile-thumb"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== CHROME OFFLINE DETAIL ============== -->
+<div style="margin-top: var(--sp-xxl);"><span class="preview-label">C · Pro7 offline — chrome status only, no takeover</span></div>
+<p class="preview-caption">Disconnected state never takes over the app. The operator can still listen, transcribe, and import documents while Pro7 is unreachable. Indicator turns coral, label switches to <code>Pro7 OFFLINE</code>, clicking the LED opens connection settings.</p>
+<div class="window" style="height: 80px;">
+  <div class="chrome">
+    <div class="traffic"><span></span><span></span><span></span></div>
+    <div class="wordmark">
+      <svg class="marker" viewBox="0 0 14 18" fill="none">
+        <path d="M7 0 C3 0 0 3 0 7 C0 11 7 18 7 18 C7 18 14 11 14 7 C14 3 11 0 7 0 Z" fill="#009CDE"/>
+        <circle cx="7" cy="7" r="3.5" fill="#1B1815"/>
+        <path d="M7 4.5 v5 M4.5 7 h5" stroke="#009CDE" stroke-width="0.9"/>
+      </svg>
+      WHISPER VERSES
+    </div>
+    <div class="chrome-status" style="cursor: pointer;">
+      <span class="led offline" style="background: var(--brand-coral); box-shadow: 0 0 8px var(--brand-coral);"></span>
+      <span style="color: var(--brand-coral); font-weight: 900; letter-spacing: 1.2px;">PRO7 OFFLINE</span>
+    </div>
+    <div class="chrome-spacer"></div>
+    <div class="chrome-actions">
+      <button class="chrome-btn">Pick Verse</button>
+      <button class="chrome-btn">Listen ⌘L</button>
+      <button class="chrome-btn">Settings</button>
+    </div>
+  </div>
+</div>
+
+<p class="preview-caption" style="margin-top: var(--sp-xxl);">Hover the LISTEN button. Watch the coral tally LED on the LIVE clock breathe at 1.4s. The brand-blue tiles in the catch feed are the unforgettable thing — they're what someone describes Whisper Verses as.</p>
+
+</div>
+</body>
+</html>

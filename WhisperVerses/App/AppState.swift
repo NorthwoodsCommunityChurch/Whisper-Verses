@@ -496,14 +496,26 @@ final class AppState {
 
     // MARK: - ProPresenter Connection
 
-    func connectToProPresenter() async {
+    /// Connect to ProPresenter. Pass `silent: true` for the launch auto-connect
+    /// — failures are reflected in the chrome status LED only, not as a popup
+    /// error. Pass `silent: false` (the default) when the user explicitly clicks
+    /// Connect, so they see feedback if it fails.
+    func connectToProPresenter(silent: Bool = false) async {
         proPresenterAPI.host = proPresenterHost
         proPresenterAPI.port = proPresenterPort
-        let connected = await proPresenterAPI.checkConnection()
+
+        // Silent path retries once with a short delay — the first network call
+        // after launch can be slow (cold DNS / local-network permission warmup).
+        var connected = await proPresenterAPI.checkConnection()
+        if !connected && silent {
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            connected = await proPresenterAPI.checkConnection()
+        }
+
         await MainActor.run {
             self.isProPresenterConnected = connected
         }
-        if !connected {
+        if !connected && !silent {
             showError("Could not connect to ProPresenter at \(proPresenterHost):\(proPresenterPort). Check that Pro7 is running and the network API is enabled.")
         }
         saveSettings()

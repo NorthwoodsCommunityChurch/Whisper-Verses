@@ -8,9 +8,26 @@ struct AdvancedSettingsView: View {
     var body: some View {
         @Bindable var state = appState
 
-        Form {
-            Section("Manuscript Server") {
-                Toggle("Enable", isOn: $isWebServerEnabled)
+        ScrollView {
+            VStack(alignment: .leading, spacing: Theme.Space.xl) {
+                manuscriptServerSection(state: state)
+                hyperDeckSection(state: state)
+            }
+            .padding(Theme.Space.xl)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .background(Theme.Surface.window)
+    }
+
+    // MARK: - Manuscript server
+
+    private func manuscriptServerSection(state: AppState) -> some View {
+        SettingsSection("Manuscript Server", trailing: AnyView(serverLED)) {
+            HStack(spacing: Theme.Space.med) {
+                Toggle("", isOn: $isWebServerEnabled)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .tint(Theme.Brand.lightBlue)
                     .onAppear { isWebServerEnabled = appState.webServer.isRunning }
                     .onChange(of: isWebServerEnabled) { _, enabled in
                         if enabled { appState.startWebServer() }
@@ -20,64 +37,78 @@ struct AdvancedSettingsView: View {
                         isWebServerEnabled = running
                     }
 
-                HStack(spacing: 8) {
-                    Text("Port:")
-                        .foregroundStyle(.secondary)
-                    TextField("Port", value: $state.webServerPort, format: .number.grouping(.never))
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 70)
-                        .disabled(appState.webServer.isRunning)
-                        .onChange(of: appState.webServerPort) { _, _ in
-                            appState.saveSettings()
-                        }
-
-                    if appState.webServer.isRunning {
-                        Circle()
-                            .fill(.green)
-                            .frame(width: 8, height: 8)
-                        Text("\(appState.webServer.connectionCount) client\(appState.webServer.connectionCount == 1 ? "" : "s")")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    if appState.webServer.isRunning {
-                        Button("Open") {
-                            if let url = URL(string: "http://localhost:\(appState.webServerPort)") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
+                SettingsRow(label: "Port") {
+                    SettingsTextField(text: state.bindingPort(\.webServerPort),
+                                       placeholder: "8080",
+                                       width: 80,
+                                       disabled: appState.webServer.isRunning,
+                                       monospaced: true)
                 }
 
+                Spacer()
+
                 if appState.webServer.isRunning {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(getNetworkURLs(port: appState.webServerPort), id: \.self) { url in
-                            Button {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(url, forType: .string)
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Text(url)
-                                        .font(.caption.monospaced())
-                                    Image(systemName: "doc.on.doc")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.tertiary)
-                            .help("Click to copy")
+                    SettingsActionButton(title: "Open", style: .secondary) {
+                        if let url = URL(string: "http://localhost:\(appState.webServerPort)") {
+                            NSWorkspace.shared.open(url)
                         }
                     }
                 }
             }
 
-            Section("HyperDeck") {
-                Toggle("Enable", isOn: $isHyperDeckEnabled)
+            if appState.webServer.isRunning {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(getNetworkURLs(port: appState.webServerPort), id: \.self) { url in
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(url, forType: .string)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(url)
+                                    .font(.system(size: 11, weight: .regular).monospaced())
+                                Image(systemName: "doc.on.doc")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(Theme.Foreground.tertiary)
+                            }
+                            .foregroundStyle(Theme.Foreground.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Click to copy")
+                    }
+                }
+            }
+        }
+    }
+
+    private var serverLED: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(appState.webServer.isRunning ? Theme.Brand.green : Theme.Foreground.tertiary)
+                .frame(width: 8, height: 8)
+                .shadow(color: appState.webServer.isRunning ? Theme.Brand.green.opacity(0.6) : .clear, radius: 4)
+            if appState.webServer.isRunning {
+                Text("\(appState.webServer.connectionCount) CLIENT\(appState.webServer.connectionCount == 1 ? "" : "S")")
+                    .font(Theme.Typography.statusPill(9))
+                    .tracking(1.5)
+                    .foregroundStyle(Theme.Brand.green)
+            } else {
+                Text("OFF")
+                    .font(Theme.Typography.statusPill(9))
+                    .tracking(1.5)
+                    .foregroundStyle(Theme.Foreground.tertiary)
+            }
+        }
+    }
+
+    // MARK: - HyperDeck
+
+    private func hyperDeckSection(state: AppState) -> some View {
+        SettingsSection("HyperDeck", trailing: AnyView(hyperDeckLED)) {
+            HStack(spacing: Theme.Space.med) {
+                Toggle("", isOn: $isHyperDeckEnabled)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .tint(Theme.Brand.lightBlue)
                     .onAppear { isHyperDeckEnabled = appState.hyperDeckClient.isConnected }
                     .onChange(of: isHyperDeckEnabled) { _, enabled in
                         if enabled { appState.connectHyperDeck() }
@@ -88,67 +119,67 @@ struct AdvancedSettingsView: View {
                     }
                     .disabled(appState.hyperDeckHost.isEmpty)
 
-                HStack(spacing: 8) {
-                    TextField("IP Address", text: $state.hyperDeckHost)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 150)
-                        .disabled(appState.hyperDeckClient.isConnected)
-                        .onChange(of: appState.hyperDeckHost) { _, _ in
-                            appState.saveSettings()
-                        }
-
-                    Text(":")
-                        .foregroundStyle(.secondary)
-
-                    TextField("Port", value: $state.hyperDeckPort, format: .number.grouping(.never))
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 60)
-                        .disabled(appState.hyperDeckClient.isConnected)
-                        .onChange(of: appState.hyperDeckPort) { _, _ in
-                            appState.saveSettings()
-                        }
-
-                    if appState.hyperDeckClient.isConnected {
-                        Circle()
-                            .fill(.green)
-                            .frame(width: 8, height: 8)
-                        Text(appState.hyperDeckClient.currentTimecode)
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
-                    }
+                SettingsRow(label: "IP Address") {
+                    SettingsTextField(text: state.binding(\.hyperDeckHost),
+                                       placeholder: "10.10.11.50",
+                                       width: 160,
+                                       disabled: appState.hyperDeckClient.isConnected,
+                                       monospaced: true)
                 }
-
-                if let error = appState.hyperDeckClient.lastError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                SettingsRow(label: "Port") {
+                    SettingsTextField(text: state.bindingPort(\.hyperDeckPort),
+                                       placeholder: "9993",
+                                       width: 70,
+                                       disabled: appState.hyperDeckClient.isConnected,
+                                       monospaced: true)
                 }
-
-                Text("Connect to HyperDeck for timecode-marked clips")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                Spacer()
             }
+
+            if appState.hyperDeckClient.isConnected {
+                Text("Timecode · \(appState.hyperDeckClient.currentTimecode)")
+                    .font(Theme.Typography.numeric(14))
+                    .foregroundStyle(Theme.Brand.green)
+            }
+
+            if let error = appState.hyperDeckClient.lastError {
+                Text(error)
+                    .font(Theme.Typography.body(11))
+                    .foregroundStyle(Theme.Status.offline)
+            }
+
+            Text("Connect to HyperDeck for timecode-marked clips")
+                .font(Theme.Typography.body(11))
+                .foregroundStyle(Theme.Foreground.tertiary)
         }
-        .formStyle(.grouped)
     }
 
-    /// Get all network interface URLs for the web server
+    private var hyperDeckLED: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(appState.hyperDeckClient.isConnected ? Theme.Brand.green : Theme.Foreground.tertiary)
+                .frame(width: 8, height: 8)
+                .shadow(color: appState.hyperDeckClient.isConnected ? Theme.Brand.green.opacity(0.6) : .clear, radius: 4)
+            Text(appState.hyperDeckClient.isConnected ? "ONLINE" : "OFFLINE")
+                .font(Theme.Typography.statusPill(9))
+                .tracking(1.5)
+                .foregroundStyle(appState.hyperDeckClient.isConnected ? Theme.Brand.green : Theme.Foreground.tertiary)
+        }
+    }
+
+    /// Get all network interface URLs for the web server.
     private func getNetworkURLs(port: UInt16) -> [String] {
         var urls: [String] = []
-
         urls.append("http://localhost:\(port)")
 
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
-        guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else {
-            return urls
-        }
+        guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return urls }
         defer { freeifaddrs(ifaddr) }
 
         var ptr = firstAddr
         while true {
             let interface = ptr.pointee
             let family = interface.ifa_addr.pointee.sa_family
-
             if family == UInt8(AF_INET) {
                 let name = String(cString: interface.ifa_name)
                 if name != "lo0" {
@@ -166,11 +197,23 @@ struct AdvancedSettingsView: View {
                     }
                 }
             }
-
             guard let next = interface.ifa_next else { break }
             ptr = next
         }
-
         return urls
+    }
+}
+
+private extension AppState {
+    func binding(_ keyPath: ReferenceWritableKeyPath<AppState, String>) -> Binding<String> {
+        Binding(get: { self[keyPath: keyPath] }, set: { self[keyPath: keyPath] = $0; self.saveSettings() })
+    }
+    func bindingPort<T: BinaryInteger & LosslessStringConvertible>(_ keyPath: ReferenceWritableKeyPath<AppState, T>) -> Binding<String> {
+        Binding(
+            get: { String(self[keyPath: keyPath]) },
+            set: { newValue in
+                if let v = T(newValue) { self[keyPath: keyPath] = v; self.saveSettings() }
+            }
+        )
     }
 }

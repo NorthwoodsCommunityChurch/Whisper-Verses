@@ -1,100 +1,52 @@
 import SwiftUI
 
+/// Horizontal LED-segment audio meter — broadcast cockpit convention.
+/// Fills left-to-right as level rises; first 60% is green, next 20% gold, top 20% coral.
 struct AnimatedWaveformView: View {
     let level: Float
     let isActive: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var barOffsets: [Double] = [0, 0.2, 0.4, 0.1, 0.3]
-    @State private var animationPhase: Double = 0
-    @State private var animationTimer: Timer?
 
-    private let barCount = 5
+    private let segmentCount = 18
 
     private var normalizedLevel: Double {
         Double(min(max(level * 3, 0), 1))
     }
 
-    private var levelColor: Color {
-        if normalizedLevel > 0.8 {
-            return .red
-        } else if normalizedLevel > 0.5 {
-            return .yellow
-        } else {
-            return .green
-        }
-    }
-
     var body: some View {
-        if reduceMotion {
-            // Fallback: simple bar like the original AudioLevelView
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.gray.opacity(0.2))
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(levelColor)
-                        .frame(width: geometry.size.width * normalizedLevel)
+        GeometryReader { geometry in
+            let totalSegments = segmentCount
+            let lit = isActive ? Int((normalizedLevel * Double(totalSegments)).rounded()) : 0
+            let segmentSpacing: CGFloat = 1
+            let segmentWidth = max(1, (geometry.size.width - CGFloat(totalSegments - 1) * segmentSpacing) / CGFloat(totalSegments))
+
+            HStack(spacing: segmentSpacing) {
+                ForEach(0..<totalSegments, id: \.self) { idx in
+                    RoundedRectangle(cornerRadius: 0.5)
+                        .fill(color(for: idx, lit: lit))
+                        .frame(width: segmentWidth)
                 }
             }
+            .frame(maxHeight: .infinity)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.06), value: lit)
+        }
+    }
+
+    /// LED color for a given segment index, given how many are currently lit.
+    private func color(for index: Int, lit: Int) -> Color {
+        let isLit = index < lit
+        let position = Double(index) / Double(segmentCount)
+
+        let color: Color
+        if position < 0.6 {
+            color = Theme.Brand.green
+        } else if position < 0.8 {
+            color = Theme.Brand.gold
         } else {
-            // Animated multi-bar waveform
-            GeometryReader { geometry in
-                HStack(spacing: 2) {
-                    ForEach(0..<barCount, id: \.self) { index in
-                        RoundedRectangle(cornerRadius: 1.5)
-                            .fill(isActive ? levelColor : Color.gray.opacity(0.3))
-                            .frame(height: barHeight(for: index, in: geometry.size.height))
-                            .frame(maxHeight: .infinity, alignment: .center)
-                    }
-                }
-                .animation(.spring(response: 0.15, dampingFraction: 0.7), value: normalizedLevel)
-                .animation(.spring(response: 0.15, dampingFraction: 0.7), value: animationPhase)
-            }
-            .onChange(of: isActive) { _, active in
-                if active {
-                    startAnimationTimer()
-                } else {
-                    stopAnimationTimer()
-                }
-            }
-            .onAppear {
-                if isActive {
-                    startAnimationTimer()
-                }
-            }
-            .onDisappear {
-                stopAnimationTimer()
-            }
-        }
-    }
-
-    private func startAnimationTimer() {
-        stopAnimationTimer()
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
-            animationPhase += 1
-            for i in 0..<barCount {
-                barOffsets[i] = Double.random(in: -0.15...0.15)
-            }
-        }
-    }
-
-    private func stopAnimationTimer() {
-        animationTimer?.invalidate()
-        animationTimer = nil
-    }
-
-    private func barHeight(for index: Int, in maxHeight: Double) -> Double {
-        let minHeight = maxHeight * 0.15
-        guard isActive, normalizedLevel > 0.01 else {
-            return minHeight
+            color = Theme.Status.live
         }
 
-        // Each bar gets a slightly different height based on level + offset
-        let baseHeight = normalizedLevel * maxHeight
-        let variation = barOffsets[index] * maxHeight * 0.3
-        let height = baseHeight + variation
-
-        return max(min(height, maxHeight), minHeight)
+        return isLit ? color : color.opacity(0.10)
     }
 }

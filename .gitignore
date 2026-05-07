@@ -43,3 +43,13 @@ Package.resolved
 # IDE
 .vscode/
 .idea/
+
+
+# Release artifacts
+WhisperVerses-v*.zip
+
+# Local Claude config
+.claude/
+
+# Document import test inputs (user-specific, should not be in repo)
+/*.docx

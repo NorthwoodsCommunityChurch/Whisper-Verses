@@ -4,20 +4,16 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             ConnectionSettingsView()
-                .tabItem {
-                    Label("Connection", systemImage: "network")
-                }
+                .tabItem { Label("Connection", systemImage: "network") }
 
             OutputSettingsView()
-                .tabItem {
-                    Label("Output", systemImage: "folder")
-                }
+                .tabItem { Label("Output", systemImage: "folder") }
 
             AdvancedSettingsView()
-                .tabItem {
-                    Label("Advanced", systemImage: "gearshape.2")
-                }
+                .tabItem { Label("Advanced", systemImage: "gearshape.2") }
         }
-        .frame(width: 480, height: 400)
+        .frame(width: 520, height: 460)
+        .background(Theme.Surface.window)
+        .scrollContentBackground(.hidden)
     }
 }

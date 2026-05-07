@@ -134,12 +134,13 @@ final class ProPresenterAPI {
 
     // MARK: - Slide Thumbnails
 
-    /// Get a slide thumbnail image from a presentation.
-    /// Returns raw image data (typically JPEG). The quality parameter controls resolution
-    /// (default 400 = 400px on the longest side).
+    /// Get a slide thumbnail image from a presentation as a PNG.
+    /// The `thumbnail_type=png` parameter is required for alpha-channel support;
+    /// without it Pro7 returns JPEG by default, which has no transparency.
+    /// The quality parameter controls resolution (pixels on the longest side).
     func getSlideImage(presentationUUID: String, slideIndex: Int, quality: Int = 400) async throws -> Data {
         let encoded = presentationUUID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? presentationUUID
-        let data = try await get("/v1/presentation/\(encoded)/thumbnail/\(slideIndex)?quality=\(quality)")
+        let data = try await get("/v1/presentation/\(encoded)/thumbnail/\(slideIndex)?quality=\(quality)&thumbnail_type=png")
         guard !data.isEmpty else {
             throw APIError.noImageData
         }
