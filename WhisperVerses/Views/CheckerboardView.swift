@@ -12,7 +12,7 @@ struct CheckerboardView: View {
                 for col in 0..<cols {
                     let isLight = (row + col) % 2 == 0
                     let rect = CGRect(x: CGFloat(col) * size, y: CGFloat(row) * size, width: size, height: size)
-                    context.fill(Path(rect), with: .color(isLight ? .white : Color.gray.opacity(0.2)))
+                    context.fill(Path(rect), with: .color(isLight ? Color(white: 0.20) : .black))
                 }
             }
         }

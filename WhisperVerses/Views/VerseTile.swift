@@ -141,13 +141,7 @@ struct VerseTile: View {
         switch variant {
         case .captured(let image, _):
             ZStack {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.35, green: 0.29, blue: 0.21),
-                        Color(red: 0.16, green: 0.12, blue: 0.08)
-                    ],
-                    startPoint: .top, endPoint: .bottom
-                )
+                CheckerboardView()
                 if let image {
                     Image(nsImage: image)
                         .resizable()
@@ -159,7 +153,7 @@ struct VerseTile: View {
             .clipShape(RoundedRectangle(cornerRadius: 2))
             .overlay {
                 RoundedRectangle(cornerRadius: 2)
-                    .strokeBorder(Color.white.opacity(0.05), lineWidth: 1)
+                    .strokeBorder(Color.white.opacity(0.5), lineWidth: 1)
             }
 
         case .capturing, .next, .failed:
