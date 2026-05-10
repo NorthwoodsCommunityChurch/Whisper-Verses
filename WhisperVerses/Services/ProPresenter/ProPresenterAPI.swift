@@ -11,8 +11,11 @@ final class ProPresenterAPI {
     /// Shared URLSession with short timeouts for responsiveness
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 10
-        config.timeoutIntervalForResource = 60
+        // Pro7's /v1/presentation/{uuid} for large books (Psalms is 483KB / 2461 slides)
+        // can take 15–25s under concurrent load. 10s was too tight and produced
+        // spurious "Failed to load slides" failures on Psalms.
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 90
         return URLSession(configuration: config)
     }()
 

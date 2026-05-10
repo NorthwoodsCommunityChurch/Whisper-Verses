@@ -22,6 +22,14 @@ final class PresentationIndexer {
     private let api: ProPresenterAPI
     private let bookIndex: BibleBookIndex
 
+    /// In-flight slide-load tasks keyed by bookCode. Lets concurrent lookups for
+    /// the same book share a single Pro7 request instead of each firing their
+    /// own. Without this, two simultaneous detections from one book (common
+    /// during a sermon) issue two parallel 480KB+ loads and both can time out
+    /// because Pro7's REST server doesn't handle that well. Mutated only on the
+    /// main actor.
+    @MainActor private var inFlightLoads: [String: Task<Bool, Never>] = [:]
+
     /// Returns the list of Bible books that are NOT indexed from Pro7.
     var missingBooks: [BibleBook] {
         bookIndex.books.filter { !map.hasBook($0.code) }
@@ -102,9 +110,59 @@ final class PresentationIndexer {
 
             logger.info("PresentationIndexer: Registered \(bookCount)/66 books (slides loaded on-demand)")
 
+            // Pay the cold-load tax now, in the background, before the sermon
+            // starts. Otherwise the first verse from each book during a live
+            // sermon blocks on a Pro7 request that can take 1–30s under load.
+            // Run sequentially with a small inter-book delay so we don't
+            // hammer Pro7's REST server (which is the same machine running
+            // the live presentation).
+            Task.detached(priority: .background) { [weak self] in
+                await self?.warmupAllBooks()
+            }
+
         } catch {
             await setError("Indexing failed: \(error.localizedDescription)")
         }
+    }
+
+    /// After initial indexing, proactively load every book's slide labels in
+    /// the background so subsequent live captures don't pay the cold-load tax.
+    /// Sequential with a short inter-book delay — Pro7's REST server doesn't
+    /// like parallel large-presentation reads.
+    private func warmupAllBooks() async {
+        let bookCodes = await MainActor.run { self.bookIndex.books.map(\.code) }
+        var warmedCount = 0
+        let startTime = Date()
+        ThreadSafeAudioProcessor.appendToDebugLog("[Pro7] Background warmup starting for \(bookCodes.count) books\n")
+
+        for bookCode in bookCodes {
+            // Skip books not registered with Pro7 (presentation missing for this translation).
+            let registered = await MainActor.run { self.map.presentationUUID(for: bookCode) != nil }
+            guard registered else { continue }
+
+            // Skip books already loaded (e.g., a live capture beat warmup to it).
+            let alreadyLoaded = await MainActor.run { self.map.isBookLoaded(bookCode) }
+            if alreadyLoaded {
+                warmedCount += 1
+                continue
+            }
+
+            // Use the same coalescing path as live lookups so a real capture
+            // happening at this exact moment shares the load instead of racing.
+            if await self.ensureBookLoaded(bookCode: bookCode) {
+                warmedCount += 1
+            }
+
+            // 200ms inter-book throttle so warmup doesn't starve the operator's
+            // first live captures of Pro7 bandwidth.
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+
+        let elapsed = Int(Date().timeIntervalSince(startTime))
+        let totalVerses = await MainActor.run { self.map.totalVerses }
+        let msg = "[Pro7] Background warmup complete: \(warmedCount)/\(bookCodes.count) books, \(totalVerses) verses, \(elapsed)s"
+        logger.info("\(msg)")
+        ThreadSafeAudioProcessor.appendToDebugLog(msg + "\n")
     }
 
     // MARK: - Lazy Lookup
@@ -114,74 +172,125 @@ final class PresentationIndexer {
     func lookup(_ reference: BibleReference) async -> ProPresentationMap.SlideLocation? {
         let bookCode = reference.bookCode
 
-        // Check if we need to load this book's slides
         if !map.isBookLoaded(bookCode) {
-            guard let uuid = map.presentationUUID(for: bookCode) else {
-                logger.error("PresentationIndexer.lookup: Book '\(bookCode)' not registered")
-                return nil
-            }
-
-            // Load slides from Pro7
-            await MainActor.run { self.currentlyLoadingBook = bookCode }
-            defer { Task { @MainActor in self.currentlyLoadingBook = nil } }
-
-            var slides: [ProPresenterAPI.Slide]? = nil
-            var lastError: Error? = nil
-            for attempt in 1...3 {
-                do {
-                    let msg = "[Pro7] Loading slides for \(bookCode) uuid=\(uuid.prefix(8))... (attempt \(attempt)/3)"
-                    logger.info("\(msg)")
-                    ThreadSafeAudioProcessor.appendToDebugLog(msg + "\n")
-                    slides = try await api.getPresentationSlides(presentationUUID: uuid)
-                    ThreadSafeAudioProcessor.appendToDebugLog("[Pro7] Loaded \(slides?.count ?? 0) slides for \(bookCode)\n")
-                    break
-                } catch {
-                    lastError = error
-                    let errorDesc = Self.describeError(error)
-                    let msg = "[Pro7] Attempt \(attempt) FAILED for \(bookCode): \(errorDesc)"
-                    logger.warning("\(msg)")
-                    ThreadSafeAudioProcessor.appendToDebugLog(msg + "\n")
-                    if attempt < 3 {
-                        try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
-                    }
-                }
-            }
-
-            guard let loadedSlides = slides else {
-                let errorDesc = Self.describeError(lastError)
-                let msg = "[Pro7] All 3 attempts FAILED for \(bookCode): \(errorDesc)"
-                logger.error("\(msg)")
-                ThreadSafeAudioProcessor.appendToDebugLog(msg + "\n")
-                return nil
-            }
-
-            let labels = loadedSlides.map { $0.label }
-
-            let sampleLabels = labels.prefix(5).map { "'\($0)'" }.joined(separator: ", ")
-            logger.info("PresentationIndexer: \(bookCode) first labels: [\(sampleLabels)]")
-            if let lastLabel = labels.last {
-                logger.info("PresentationIndexer: \(bookCode) last label: '\(lastLabel)'")
-            }
-
-            let emptyCount = labels.filter { $0.trimmingCharacters(in: .whitespaces).isEmpty }.count
-            if emptyCount > 0 {
-                logger.warning("PresentationIndexer: \(bookCode) has \(emptyCount) empty labels out of \(labels.count)")
-            }
-
-            await MainActor.run {
-                self.map.registerSlides(
-                    bookCode: bookCode,
-                    presentationUUID: uuid,
-                    slideLabels: labels
-                )
-                self.indexedVerseCount = self.map.totalVerses
-            }
-
-            logger.info("PresentationIndexer: Loaded \(loadedSlides.count) slides for \(bookCode)")
+            let succeeded = await ensureBookLoaded(bookCode: bookCode)
+            guard succeeded else { return nil }
         }
 
-        // Now look up the verse
         return map.lookup(reference)
+    }
+
+    /// Ensure a book's slides are loaded, coalescing concurrent requests for
+    /// the same book into one Pro7 call. Used by `lookup(_:)` and by the
+    /// background warmup. Returns `true` if the book is loaded after this call.
+    ///
+    /// Without this coalescing, two simultaneous detections from one book
+    /// (e.g. back-to-back Psalms references) would issue two parallel 480KB+
+    /// loads and Pro7's REST server can't handle that — both can fail.
+    ///
+    /// Cleanup of `inFlightLoads[bookCode]` lives inside the task body so
+    /// the entry is removed even if every awaiting caller is cancelled before
+    /// the load completes — otherwise the slot would leak permanently.
+    @discardableResult
+    private func ensureBookLoaded(bookCode: String) async -> Bool {
+        if map.isBookLoaded(bookCode) { return true }
+
+        guard map.presentationUUID(for: bookCode) != nil else {
+            logger.error("PresentationIndexer: Book '\(bookCode)' not registered")
+            return false
+        }
+
+        let loadTask: Task<Bool, Never> = await MainActor.run {
+            if let existing = self.inFlightLoads[bookCode] {
+                return existing
+            }
+            let task = Task<Bool, Never> { [weak self] in
+                guard let self else { return false }
+                let result = await self.performBookLoad(bookCode: bookCode)
+                await MainActor.run { self.inFlightLoads.removeValue(forKey: bookCode) }
+                return result
+            }
+            self.inFlightLoads[bookCode] = task
+            return task
+        }
+
+        return await loadTask.value
+    }
+
+    /// Perform the actual slide-load network call with retries.
+    /// Returns true on success (slides registered), false on permanent failure.
+    /// Called once per book at a time; concurrent callers share the same Task via `inFlightLoads`.
+    private func performBookLoad(bookCode: String) async -> Bool {
+        guard let uuid = await MainActor.run(body: { map.presentationUUID(for: bookCode) }) else {
+            return false
+        }
+
+        await MainActor.run { self.currentlyLoadingBook = bookCode }
+        defer { Task { @MainActor [weak self] in self?.currentlyLoadingBook = nil } }
+
+        // Pro7's /v1/presentation/{uuid} is unreliable on cold load — first
+        // attempt often returns HTTP 500, second can time out, third usually
+        // succeeds. Bumped from 3 to 5 attempts and switched to exponential
+        // backoff so larger books (Psalms, Genesis, Isaiah) survive Pro7's
+        // recovery window. With the 30s URL request timeout this gives ~2.5
+        // minutes of headroom per book before declaring permanent failure.
+        var slides: [ProPresenterAPI.Slide]? = nil
+        var lastError: Error? = nil
+        let maxAttempts = 5
+        for attempt in 1...maxAttempts {
+            do {
+                let msg = "[Pro7] Loading slides for \(bookCode) uuid=\(uuid.prefix(8))... (attempt \(attempt)/\(maxAttempts))"
+                logger.info("\(msg)")
+                ThreadSafeAudioProcessor.appendToDebugLog(msg + "\n")
+                slides = try await api.getPresentationSlides(presentationUUID: uuid)
+                ThreadSafeAudioProcessor.appendToDebugLog("[Pro7] Loaded \(slides?.count ?? 0) slides for \(bookCode)\n")
+                break
+            } catch {
+                lastError = error
+                let errorDesc = Self.describeError(error)
+                let msg = "[Pro7] Attempt \(attempt) FAILED for \(bookCode): \(errorDesc)"
+                logger.warning("\(msg)")
+                ThreadSafeAudioProcessor.appendToDebugLog(msg + "\n")
+                if attempt < maxAttempts {
+                    // 500ms, 1s, 2s, 4s — total ~7.5s of backoff across 4 gaps
+                    let backoffMs = UInt64(500 * (1 << (attempt - 1)))
+                    try? await Task.sleep(nanoseconds: backoffMs * 1_000_000)
+                }
+            }
+        }
+
+        guard let loadedSlides = slides else {
+            let errorDesc = Self.describeError(lastError)
+            let msg = "[Pro7] All \(maxAttempts) attempts FAILED for \(bookCode): \(errorDesc)"
+            logger.error("\(msg)")
+            ThreadSafeAudioProcessor.appendToDebugLog(msg + "\n")
+            return false
+        }
+
+        let labels = loadedSlides.map { $0.label }
+
+        let sampleLabels = labels.prefix(5).map { "'\($0)'" }.joined(separator: ", ")
+        logger.info("PresentationIndexer: \(bookCode) first labels: [\(sampleLabels)]")
+        if let lastLabel = labels.last {
+            logger.info("PresentationIndexer: \(bookCode) last label: '\(lastLabel)'")
+        }
+
+        let emptyCount = labels.filter { $0.trimmingCharacters(in: .whitespaces).isEmpty }.count
+        if emptyCount > 0 {
+            logger.warning("PresentationIndexer: \(bookCode) has \(emptyCount) empty labels out of \(labels.count)")
+        }
+
+        await MainActor.run {
+            self.map.registerSlides(
+                bookCode: bookCode,
+                presentationUUID: uuid,
+                slideLabels: labels
+            )
+            self.indexedVerseCount = self.map.totalVerses
+        }
+
+        logger.info("PresentationIndexer: Loaded \(loadedSlides.count) slides for \(bookCode)")
+        return true
     }
 
     // MARK: - Name Parsing
